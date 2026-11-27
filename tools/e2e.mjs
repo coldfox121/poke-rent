@@ -73,6 +73,14 @@ check(await page.$eval('#story-modal', el => el.textContent.includes('火箭队'
 await page.click('#m-story-start');
 check(await page.$eval('#story-layer', el => el.style.display) === 'none', '故事弹窗可关闭');
 
+// ---- 播放速度设置 ----
+check(await page.$$eval('#speed-ctrl .speed-btn', els => els.length) === 4, '速度控件含 x1/x2/x3/跳过 四档');
+check(await page.$eval('#speed-ctrl .speed-btn[data-speed="1"]', el => el.classList.contains('active')), '默认 x1');
+await page.click('#speed-ctrl .speed-btn[data-speed="3"]');
+check(await page.evaluate(() => localStorage.getItem('poke-rent-speed')) === '3', '倍速选择跨局写入 localStorage');
+check(await page.$eval('body', el => el.getAttribute('data-speed')) === '3', '倍速同步到 body');
+await page.click('#speed-ctrl .speed-btn[data-speed="1"]');
+
 check(await page.$eval('#hud-coins', el => el.textContent) === '1', '初始金币 1');
 check(await page.$$eval('#reel .cell', els => els.length) === 20, '20 格网格');
 check(await page.$$eval('#pool .pool-chip', els => els.length) === 3, '初始卡池御三家 3 只');

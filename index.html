@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>宝可梦房东 · poke-rent</title>
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 <div id="app">
@@ -15,7 +15,7 @@
       <div class="hud-item"><span class="hud-label">下次房租</span><span class="hud-value" id="hud-rent">80</span></div>
       <div class="hud-item"><span class="hud-label">剩余转动</span><span class="hud-value" id="hud-spins">5</span></div>
       <div class="hud-item hud-click" id="hud-progress-box"><span class="hud-label">进度</span><span class="hud-value" id="hud-progress">1/7</span></div>
-      <button class="btn btn-ghost btn-dex" id="btn-dex"><img class="btn-ico" src="assets/items/poke-ball.png?v=10" alt="">图鉴 <span id="dex-count">0/18</span></button>
+      <button class="btn btn-ghost btn-dex" id="btn-dex"><img class="btn-ico" src="assets/items/poke-ball.png?v=11" alt="">图鉴 <span id="dex-count">0/18</span></button>
       <button class="btn btn-ghost btn-rules" id="btn-rules"><span class="btn-ico btn-ico-rule">📜</span>规则</button>
     </div>
   </header>
@@ -29,6 +29,13 @@
         <button class="btn btn-ghost" id="btn-skip" style="display:none">跳过动画</button>
         <button class="btn btn-ghost" id="btn-restart">重开</button>
         <button class="btn btn-ghost btn-danger" id="btn-clear-save">清除存档</button>
+        <div class="speed-ctrl" id="speed-ctrl" role="group" aria-label="播放速度">
+          <span class="speed-label">播放速度</span>
+          <button class="speed-btn" data-speed="1">x1</button>
+          <button class="speed-btn" data-speed="2">x2</button>
+          <button class="speed-btn" data-speed="3">x3</button>
+          <button class="speed-btn" data-speed="0">跳过</button>
+        </div>
       </div>
       <div class="gain-line" id="gain-line">—</div>
     </section>
@@ -88,9 +95,9 @@
     <div class="tutorial-tip" id="tutorial-tip"></div>
   </div>
 </div>
-<script src="js/data.js?v=10"></script>
-<script src="js/dex-data.js?v=10"></script>
-<script src="js/engine.js?v=10"></script>
-<script src="js/ui.js?v=10"></script>
+<script src="js/data.js?v=11"></script>
+<script src="js/dex-data.js?v=11"></script>
+<script src="js/engine.js?v=11"></script>
+<script src="js/ui.js?v=11"></script>
 </body>
 </html>

@@ -99,7 +99,7 @@
     rentCount: RENT.length,
     rarityBoost: 1.2,     // 坂木的契约 / 神奇糖果每层的稀有度倍率
     saveVersion: 5,
-    cacheVersion: 10
+    cacheVersion: 11
   };
 
   // 演出时序（毫秒）：集中放置，后续接调速 UI 时只需覆盖这里

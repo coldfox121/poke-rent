@@ -9,8 +9,26 @@
   var SAVE_KEY = 'poke-rent-save';
   var DEX_KEY = 'poke-rent-dex';   // 图鉴跨局保留，与单局存档分离
   var TUTOR_KEY = 'poke-rent-tutorial'; // 新手引导完成标记，跨局保留
+  var SPEED_KEY = 'poke-rent-speed'; // 播放速度偏好，跨局保留，不属于单局存档
   var CACHE_V = D.CONFIG.cacheVersion;
   var game = null, dex = [], dexSelected = null;
+  // 播放速度：1 = 正常，2/3 = 倍速，0 = 默认跳过（不播转动动画，直接出结果）
+  var speed = loadSpeed();
+
+  function loadSpeed() {
+    try {
+      var s = parseInt(localStorage.getItem(SPEED_KEY), 10);
+      if (s === 0 || s === 1 || s === 2 || s === 3) return s;
+    } catch (e) {}
+    return 1;
+  }
+
+  function saveSpeed() {
+    try { localStorage.setItem(SPEED_KEY, String(speed)); } catch (e) {}
+  }
+
+  // 按当前倍速缩放演出时长；跳过模式下为 0
+  function animMs(ms) { return speed === 0 ? 0 : Math.max(1, Math.round(ms / speed)); }
   // 演出状态：token 递增使旧演出失效，避免「跳过 / 重开」后旧回调继续跑
   // timers 支持并行计时（逐格结算 + 进化特效），abortAnim 时统一清空
   var anim = { active: false, token: 0, timers: [] };
@@ -591,12 +609,14 @@
   function showIntro() {
     var rent = D.RENT[game.rentIndex] || D.RENT[0];
     var html = '<span class="story-mark">火箭队收租行动</span><h2>精灵球机与七轮房租</h2>'
-      + '<div class="story-text">你刚被派到一栋被宝可梦占满的公寓，当上火箭队实习收租员。'
-      + '总部下了死命令：用那台会吐出宝可梦的精灵球机凑出房租，连续 7 轮把保护费交上去，公寓才算保住。'
-      + '属性相克越狠，收得越多——让宝可梦们互相帮忙吧。</div>'
+      + '<div class="story-text">你欠了火箭队一大笔钱，走投无路时搬进一栋没人敢住的公寓——'
+      + '这里挤满了野生宝可梦，还留着一台改装过的精灵球机。'
+      + '火箭队把话撂下：连续交清 7 轮房租，公寓就归你；交不出来，连人带机器一起扔出去。'
+      + '好在这台机器还能用：每转一次就掉出几只宝可梦，宝可梦按属性互相克制——压得越狠，你抽成的金币越多。'
+      + '把它们排在一起，让它们互相较劲，你负责收钱。</div>'
       + '<div class="story-goal"><h3>本局目标 · 第 ' + (game.rentIndex + 1) + ' 轮</h3>'
       + '<p>每轮 ' + rent.spins + ' 转，本轮需凑够 <b>' + rent.rent + ' 金</b>。'
-      + '撑过第 7 轮即通关；交不起房租就会被赶出公寓。</p></div>'
+      + '撑过第 7 轮就算通关；交不上房租，火箭队当场收房。</p></div>'
       + '<div class="modal-actions"><button class="btn btn-spin" id="m-story-start">开始游戏</button></div>';
     $('story-modal').innerHTML = html;
     $('story-layer').style.display = 'flex';
@@ -911,6 +931,13 @@
 
   function playSpin(token, res) {
     var cells = $('reel').children;
+    // 默认跳过：不播问号与逐格结算，直接亮出结果并进入后续流程
+    if (speed === 0) {
+      paintCells(res.grid);
+      $('machine-status').textContent = '结果已出';
+      finishAnim(token);
+      return;
+    }
     Array.prototype.forEach.call(cells, showQuestion);
     later(token, function () {
       Array.prototype.forEach.call(cells, function (cell) {
@@ -931,7 +958,7 @@
           cell.appendChild(badge);
           later(token, function () {
             if (badge.parentNode) badge.parentNode.removeChild(badge);
-          }, ANIM.revealHold + ANIM.settleTotal + 600);
+          }, animMs(ANIM.revealHold) + animMs(ANIM.settleTotal) + animMs(600));
         });
       });
       $('machine-status').textContent = '结果已出，准备结算…';
@@ -941,15 +968,15 @@
         // 阶段 B：行优先逐格结算，金币数字跟着涨
         // 空格立即跳过不浪费演出时间；有收益格按总时长均分，单格 150~600ms
         var gainCount = res.info.filter(function (x) { return x.gain > 0; }).length;
-        var step = Math.max(ANIM.settleMin, Math.min(ANIM.settleMax,
-          Math.round(ANIM.settleTotal / Math.max(1, gainCount))));
+        var step = Math.max(animMs(ANIM.settleMin), Math.min(animMs(ANIM.settleMax),
+          Math.round(animMs(ANIM.settleTotal) / Math.max(1, gainCount))));
         var idx = 0, shown = res.startCoins;
         function settleOne() {
           if (idx >= res.info.length) {
             later(token, function () {
               $('gain-line').innerHTML = '上转收益 <span class="big">+' + res.gain + '</span> 金';
               finishAnim(token);
-            }, ANIM.tailDuration);
+            }, animMs(ANIM.tailDuration));
             return;
           }
           var i = idx++, info = res.info[i], cell = cells[i], floats = [];
@@ -960,7 +987,7 @@
             if (links.length) {
               // 每条联动单独结算、单独跳一次：克 2 个邻居 = 跳 2 次，每次 base×2
               var per = Math.round(info.gain / links.length);
-              var sub = Math.max(110, Math.floor(step / links.length));
+              var sub = Math.max(animMs(110), Math.floor(step / links.length));
               duration = sub * links.length;
               var added = 0;
               links.forEach(function (link, k) {
@@ -992,8 +1019,8 @@
           }, duration);
         }
         settleOne();
-      }, ANIM.revealHold);
-    }, ANIM.questionDuration);
+      }, animMs(ANIM.revealHold));
+    }, animMs(ANIM.questionDuration));
   }
 
   function onSpin() {
@@ -1010,6 +1037,21 @@
     playSpin(token, res);
   }
 
+  function setSpeed(s) {
+    if ([0, 1, 2, 3].indexOf(s) < 0) return;
+    speed = s;
+    saveSpeed();
+    renderSpeed();
+  }
+
+  // 速度控件高亮 + body 标记（CSS 用 data-speed 同步缩短弹跳、金币等动画）
+  function renderSpeed() {
+    document.body.setAttribute('data-speed', String(speed));
+    Array.prototype.forEach.call(document.querySelectorAll('#speed-ctrl .speed-btn'), function (btn) {
+      btn.classList.toggle('active', parseInt(btn.getAttribute('data-speed'), 10) === speed);
+    });
+  }
+
   function bind() {
     $('btn-spin').onclick = onSpin;
     $('btn-skip').onclick = skipAnim;
@@ -1017,6 +1059,14 @@
     $('btn-rules').onclick = showRules;
     $('hud-progress-box').onclick = onProgressClick;
     $('modal-dock').onclick = expandFromDock;
+    Array.prototype.forEach.call(document.querySelectorAll('#speed-ctrl .speed-btn'), function (btn) {
+      btn.onclick = function () {
+        var s = parseInt(btn.getAttribute('data-speed'), 10);
+        // 演出中切到「跳过」：当前这次也立即结束
+        if (s === 0 && anim.active) skipAnim();
+        setSpeed(s);
+      };
+    });
     $('btn-restart').onclick = function () {
       if (confirm('确定重开？当前进度会丢失。')) restart();
     };
@@ -1028,6 +1078,7 @@
     dex = loadDex();
     lightDex(game.pool); // 开局自带的御三家按「进入卡池」规则点亮
     bind();
+    renderSpeed();
     render();
     if (game.phase === 'rentDue') showRent();
     else if (game.phase === 'choosing') showOffer();

@@ -1,6 +1,6 @@
 /* 线上验收：对 Pages 部署后的 URL 做资源连通性与缓存版本校验 */
 const BASE = process.argv[2] || 'https://poke-rent.pages.dev';
-const V = '10';
+const V = '11';
 
 let failures = 0;
 function check(c, m) { if (!c) { failures++; console.error('FAIL ' + m); } else console.log('PASS ' + m); }
@@ -22,6 +22,8 @@ check(home.text.includes('js/dex-data.js?v=' + V), 'dex-data.js 引用带缓存�
 check(home.text.includes('js/engine.js?v=' + V), 'engine.js 引用带缓存版本');
 check(home.text.includes('js/ui.js?v=' + V), 'ui.js 引用带缓存版本');
 check(home.text.includes('btn-skip'), '跳过动画按钮已部署');
+check(home.text.includes('speed-ctrl'), '播放速度控件已部署');
+check(home.text.includes('data-speed="0"'), '默认跳过动画档位已部署');
 check(home.text.includes('modal-dock'), '选择弹窗收起按钮已部署');
 check(home.text.includes('btn-dex'), '图鉴按钮已部署');
 check(home.text.includes('btn-rules'), '规则按钮已部署');
@@ -45,6 +47,7 @@ check(css.text.includes('.type-pill'), '选择卡片属性彩色标签样式已�
 check(css.text.includes('.choice img{width:96px'), '三选一宝可梦图标放大样式已部署');
 check(css.text.includes('.hud-click{cursor:default'), '进度格无可点击视觉暗示已部署');
 check(css.text.includes('.story-layer{z-index:110}'), '开场故事弹窗样式已部署');
+check(css.text.includes('.speed-btn.active'), '播放速度选中样式已部署');
 check(css.text.includes('.pool-type'), '卡池属性标签样式已部署');
 check(css.text.includes('.rank-nums'), '本局/上一转双列排名样式已部署');
 check(!css.text.includes('.float-link'), '联动目标不带文字标识已部署');
@@ -63,6 +66,7 @@ check(ui.text.includes('clearAllSaves'), '清除存档逻辑已部署');
 check(ui.text.includes('playLink'), '逐条联动跳动演出已部署');
 check(ui.text.includes('1997121'), '调试窗口密码入口已部署');
 check(ui.text.includes('probBar'), '顶部概率条逻辑已部署');
+check(ui.text.includes('loadSpeed'), '播放速度设置逻辑已部署');
 check(ui.text.includes('evolving'), '进化特效逻辑已部署');
 const eng = await get('/js/engine.js?v=' + V);
 check(eng.status === 200 && eng.text.includes('postRentOffer'), '交租后强制稀有度逻辑已部署');
