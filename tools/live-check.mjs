@@ -1,5 +1,6 @@
 /* 线上验收：对 Pages 部署后的 URL 做资源连通性与缓存版本校验 */
 const BASE = process.argv[2] || 'https://poke-rent.pages.dev';
+const V = '5';
 
 let failures = 0;
 function check(c, m) { if (!c) { failures++; console.error('FAIL ' + m); } else console.log('PASS ' + m); }
@@ -15,44 +16,58 @@ console.log('== 线上验收 ' + BASE + ' ==');
 const home = await get('/');
 check(home.status === 200, '首页 HTTP 200');
 check(home.text.includes('宝可梦房东'), '首页标题正确');
-check(home.text.includes('style.css?v=4'), '样式表引用带缓存版本');
-check(home.text.includes('js/data.js?v=4'), 'data.js 引用带缓存版本');
-check(home.text.includes('js/engine.js?v=4'), 'engine.js 引用带缓存版本');
-check(home.text.includes('js/ui.js?v=4'), 'ui.js 引用带缓存版本');
+check(home.text.includes('style.css?v=' + V), '样式表引用带缓存版本');
+check(home.text.includes('js/data.js?v=' + V), 'data.js 引用带缓存版本');
+check(home.text.includes('js/dex-data.js?v=' + V), 'dex-data.js 引用带缓存版本');
+check(home.text.includes('js/engine.js?v=' + V), 'engine.js 引用带缓存版本');
+check(home.text.includes('js/ui.js?v=' + V), 'ui.js 引用带缓存版本');
 check(home.text.includes('btn-skip'), '跳过动画按钮已部署');
+check(home.text.includes('modal-dock'), '选择弹窗收起按钮已部署');
+check(home.text.includes('btn-dex'), '图鉴按钮已部署');
 check(home.text.includes('rank-box'), '贡献排名面板已部署');
+check(home.text.includes('0/7'), '7 轮进度已部署');
 
-// 新样式与稀有度已部署
-const css = await get('/style.css?v=4');
+// 新样式与逻辑已部署
+const css = await get('/style.css?v=' + V);
 check(css.status === 200 && css.text.includes('.cell.question'), '问号演出样式已部署');
-const ui = await get('/js/ui.js?v=4');
+check(css.text.includes('.dex-card.locked'), '图鉴剪影样式已部署');
+const ui = await get('/js/ui.js?v=' + V);
 check(ui.status === 200 && ui.text.includes('class="rar"'), '稀有度标签已部署');
-const eng = await get('/js/engine.js?v=4');
+check(ui.text.includes('m-hide'), '收起弹窗逻辑已部署');
+check(ui.text.includes('showDex'), '图鉴弹窗逻辑已部署');
+const eng = await get('/js/engine.js?v=' + V);
 check(eng.status === 200 && eng.text.includes('postRentOffer'), '交租后强制稀有度逻辑已部署');
+check(eng.text.includes('rollItemOffer'), '道具 3 选 1 逻辑已部署');
+check(eng.text.includes('revealHold'), '结果停留 1 秒参数已部署');
 
 // 静态资源
-const js = await get('/js/data.js?v=4');
+const js = await get('/js/data.js?v=' + V);
 check(js.status === 200, 'data.js HTTP 200');
-check(js.text.includes('saveVersion: 3'), 'data.js 内容正确');
+check(js.text.includes('saveVersion: 4'), 'data.js 存档版本正确');
+check(js.text.includes('itemOfferCount: 3'), '道具 3 选 1 配置已部署');
 check(js.text.includes('RARITY'), '稀有度数据已部署');
+const dexData = await get('/js/dex-data.js?v=' + V);
+check(dexData.status === 200 && dexData.text.includes('妙蛙种子'), '图鉴中文说明已部署');
+check((dexData.text.match(/"/g) || []).length >= 36, '图鉴 18 条数据齐全');
 
 // 18 只宝可梦图
 const ids = [1, 2, 4, 5, 7, 8, 25, 26, 37, 43, 50, 51, 54, 81, 86, 87, 95, 361];
 let spritesOk = 0;
 for (const id of ids) {
-  const r = await fetch(BASE + '/assets/pokemon/' + id + '.png?v=4');
+  const r = await fetch(BASE + '/assets/pokemon/' + id + '.png?v=' + V);
   if (r.status === 200) spritesOk++;
 }
 check(spritesOk === 18, `18 只精灵图全部可访问 (${spritesOk}/18)`);
 
-// 道具图标
-const icons = ['poke-ball', 'center-pass', 'coffee', 'contract', 'broken-ball', 'recycle', 'conveyor'];
+// 道具图标（原 7 + 新增 3）
+const icons = ['poke-ball', 'center-pass', 'coffee', 'contract', 'broken-ball', 'recycle', 'conveyor',
+  'lucky-egg', 'exp-share', 'rare-candy'];
 let iconsOk = 0;
 for (const n of icons) {
-  const r = await fetch(BASE + '/assets/items/' + n + '.png?v=4');
+  const r = await fetch(BASE + '/assets/items/' + n + '.png?v=' + V);
   if (r.status === 200) iconsOk++;
 }
-check(iconsOk === 7, `7 个道具图标全部可访问 (${iconsOk}/7)`);
+check(iconsOk === 10, `10 个道具图标全部可访问 (${iconsOk}/10)`);
 
 console.log(failures === 0 ? '\n全部通过' : `\n${failures} 项失败`);
 process.exit(failures === 0 ? 0 : 1);

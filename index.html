@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>宝可梦房东 · poke-rent</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <div id="app">
@@ -12,9 +12,10 @@
     <div class="brand"><span class="brand-icon">◈</span> 宝可梦房东 <span class="sub">火箭队收租</span></div>
     <div class="hud">
       <div class="hud-item"><span class="hud-label">金币</span><span class="hud-value" id="hud-coins">1</span></div>
-      <div class="hud-item"><span class="hud-label">下次房租</span><span class="hud-value" id="hud-rent">25</span></div>
+      <div class="hud-item"><span class="hud-label">下次房租</span><span class="hud-value" id="hud-rent">80</span></div>
       <div class="hud-item"><span class="hud-label">剩余转动</span><span class="hud-value" id="hud-spins">5</span></div>
-      <div class="hud-item"><span class="hud-label">进度</span><span class="hud-value" id="hud-progress">0/12</span></div>
+      <div class="hud-item"><span class="hud-label">进度</span><span class="hud-value" id="hud-progress">0/7</span></div>
+      <button class="btn btn-ghost btn-dex" id="btn-dex">图鉴 0/18</button>
     </div>
   </header>
 
@@ -56,12 +57,18 @@
     </aside>
   </main>
 
+  <button class="modal-dock" id="modal-dock" style="display:none">选择宝可梦 ▾</button>
+
   <div class="modal-layer" id="modal-layer" style="display:none">
     <div class="modal" id="modal"></div>
   </div>
+  <div class="modal-layer dex-layer" id="dex-layer" style="display:none">
+    <div class="modal dex-modal" id="dex-modal"></div>
+  </div>
 </div>
-<script src="js/data.js?v=4"></script>
-<script src="js/engine.js?v=4"></script>
-<script src="js/ui.js?v=4"></script>
+<script src="js/data.js?v=5"></script>
+<script src="js/dex-data.js?v=5"></script>
+<script src="js/engine.js?v=5"></script>
+<script src="js/ui.js?v=5"></script>
 </body>
 </html>

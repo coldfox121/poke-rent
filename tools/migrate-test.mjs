@@ -55,6 +55,21 @@ const withContrib = { seed: 1, coins: 3, contrib: { '4': 12, '7': 5 } };
 const m4 = migrate(withContrib);
 check(m4.contrib['4'] === 12 && m4.contrib['7'] === 5, '已有 contrib 原样保留');
 
+// 测试3c：v3 单物品奖励迁移为数组
+const withItem = { seed: 2, itemOffer: 'coffee' };
+const m5 = migrate(withItem);
+check(Array.isArray(m5.itemOffer) && m5.itemOffer[0] === 'coffee', '旧档 itemOffer 字符串转数组');
+const withNoItem = { seed: 2 };
+check(Array.isArray(migrate(withNoItem).itemOffer), '旧档补齐 itemOffer 空数组');
+const withItemArr = { seed: 2, itemOffer: ['a', 'b', 'c'] };
+check(migrate(withItemArr).itemOffer.length === 3, '已有 itemOffer 数组原样保留');
+
+// 测试3d：旧版 12 轮进度不超过 7 轮时保留，超出按通关处理（不越界）
+const m6 = migrate({ seed: 3, rentIndex: 3 });
+check(m6.rentIndex === 3 && m6.phase === 'spinning', '7 轮内进度原样保留');
+const m7 = migrate({ seed: 3, rentIndex: 9 });
+check(m7.rentIndex === 9 && m7.phase === 'win', '旧版超长进度保留数值并安全转为通关');
+
 // 测试4：损坏数据回退
 const broken = { seed: 1, pool: [], tokens: { pokeBall: undefined } };
 const m3 = migrate(broken);

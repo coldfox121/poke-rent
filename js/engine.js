@@ -34,7 +34,8 @@
       coffeeUsed: false,
       postRentOffer: false,       // 交租后的首次三选一强制非凡以上
       phase: 'spinning',          // spinning | choosing | rentDue | gameover | win
-      offer: [],                  // 当前 3 选 1
+      offer: [],                  // 当前宝可梦 3 选 1
+      itemOffer: [],              // 交租后的道具 3 选 1
       lastGrid: [],               // 上一转的 20 格
       lastGain: 0,
       log: []
@@ -127,21 +128,29 @@
       info.push({ id: id, gain: d.gain, count: d.count, types: d.types });
       bySpecies[id] = (bySpecies[id] || 0) + d.gain;
     }
-    if (g.items.indexOf('recycle') >= 0) {
-      total += 2;
-      bySpecies.__other = (bySpecies.__other || 0) + 2;
+    var bonus = g.items.filter(function (id) { return id === 'recycle'; }).length * 2
+      + g.items.filter(function (id) { return id === 'expShare'; }).length * 1;
+    if (bonus > 0) {
+      total += bonus;
+      bySpecies.__other = (bySpecies.__other || 0) + bonus;
     }
     return { total: total, detail: detail, info: info, bySpecies: bySpecies };
   }
 
+  // 进化阈值：幸运蛋每层 -1，最低 2
+  function evolveThresholdOf(g) {
+    var n = g.items.filter(function (id) { return id === 'luckyEgg'; }).length;
+    return Math.max(2, CONFIG.evolveThreshold - n);
+  }
+
   // 累计上屏次数，达到阈值则进化（卡池中该物种替换为进化形态）
   function applyEvolution(g, grid) {
-    var evolved = [];
+    var evolved = [], threshold = evolveThresholdOf(g);
     for (var i = 0; i < grid.length; i++) {
       var id = grid[i], mon = POKEMON[id];
       if (id === null || !mon || !mon.evolveTo) continue;
       g.evolveCount[id] = (g.evolveCount[id] || 0) + 1;
-      if (g.evolveCount[id] >= CONFIG.evolveThreshold) {
+      if (g.evolveCount[id] >= threshold) {
         var from = id, to = mon.evolveTo;
         g.pool = g.pool.map(function (x) { return x === from ? to : x; });
         // 同步替换本转 grid 与 lastGrid 中的该物种
@@ -154,20 +163,35 @@
     return evolved;
   }
 
-  // 稀有度档位权重：原作简化版 1.0x = 常见68% / 非凡30% / 稀有1.5%
+  // 稀有度档位权重：原作简化版 1.0x = 常见68.5% / 非凡30% / 稀有1.5%
   // 第 1 次交租前只出普通，之后解锁非凡，第 2 次交租后解锁稀有；
-  // 交租后的首次三选一强制非凡以上；坂木的契约把非普通档权重 ×1.2
-  function rarityWeights(g) {
-    var boost = g.items.indexOf('contract') >= 0 ? CONFIG.rarityBoost : 1;
+  // 交租后的首次三选一强制非凡以上；
+  // 坂木的契约、神奇糖果每层 ×1.2（可叠加），普通档权重压到 0 后不再为负
+  // forItem=true 时不套用「交租后强制非凡」：那是宝可梦三选一的专用规则，
+  // 道具每轮交租后都选，若强制高阶会因高阶道具不足而回退，导致显示概率与结果不符
+  function rarityWeights(g, forItem) {
+    var layers = g.items.filter(function (id) { return id === 'contract' || id === 'rareCandy'; }).length;
+    var boost = Math.pow(CONFIG.rarityBoost, layers);
     var w = {
-      common:   100 - RARITY.uncommon.weight * boost - RARITY.rare.weight * boost,
+      common:   Math.max(0, 100 - RARITY.uncommon.weight * boost - RARITY.rare.weight * boost),
       uncommon: RARITY.uncommon.weight * boost,
       rare:     RARITY.rare.weight * boost
     };
     if (g.rentIndex < 1) { w.common += w.uncommon + w.rare; w.uncommon = 0; w.rare = 0; }
     else if (g.rentIndex < 2) { w.common += w.rare; w.rare = 0; }
-    if (g.postRentOffer && g.rentIndex >= 2) w.common = 0;
+    if (!forItem && g.postRentOffer) w.common = 0;
     return w;
+  }
+
+  // 供 UI 展示的档位百分比（与抽取权重同源）
+  function rarityPercent(g, forItem) {
+    var w = rarityWeights(g, forItem), total = w.common + w.uncommon + w.rare;
+    if (total <= 0) return { common: 0, uncommon: 100, rare: 0 };
+    return {
+      common:   Math.round(w.common / total * 1000) / 10,
+      uncommon: Math.round(w.uncommon / total * 1000) / 10,
+      rare:     Math.round(w.rare / total * 1000) / 10
+    };
   }
 
   function pickTier(g, w) {
@@ -197,6 +221,34 @@
       var id = arr[Math.floor(rng(g)() * arr.length)];
       if (out.indexOf(id) >= 0) continue;
       out.push(id);
+    }
+    return out;
+  }
+
+  // 交租后的道具 3 选 1：与宝可梦同一套「先抽稀有度档、再抽具体项」逻辑
+  // 不可叠加的拿到后不再出现；可叠加的仍可出现，保证 7 轮每轮都有 3 个选项
+  function rollItemOffer(g) {
+    var n = CONFIG.itemOfferCount, out = [], guard = 0;
+    var byTier = { common: [], uncommon: [], rare: [] };
+    Object.keys(ITEMS).forEach(function (id) {
+      if (g.items.indexOf(id) >= 0 && !ITEMS[id].stackable) return;
+      byTier[ITEMS[id].rarity].push(id);
+    });
+    var w = rarityWeights(g, true);
+    while (out.length < n && guard < 300) {
+      guard++;
+      var tier = pickTier(g, w), arr = byTier[tier];
+      if (!arr || arr.length === 0) continue;
+      var id = arr[Math.floor(rng(g)() * arr.length)];
+      if (out.indexOf(id) >= 0) continue;
+      out.push(id);
+    }
+    if (out.length < n) {
+      // 极端情况下（道具拿完）用剩余可选项补齐
+      var rest = Object.keys(byTier).reduce(function (a, k) { return a.concat(byTier[k]); }, []);
+      for (var i = 0; i < rest.length && out.length < n; i++) {
+        if (out.indexOf(rest[i]) < 0) out.push(rest[i]);
+      }
     }
     return out;
   }
@@ -297,33 +349,26 @@
       return { ok: true, win: true };
     }
 
-    // 邮件：从第 3 次租金起每隔一次给刷新/删除代币
-    if (g.rentIndex >= 2 && (g.rentIndex - 2) % 2 === 0) {
-      g.tokens.pokeBall++;
-      g.tokens.centerPass++;
-      g.log.push('收到邮件：精灵球 + 精灵中心券');
-    }
-    // 交租后 3 选 1 永久物品（首版 5 个随机给一个未拥有的）
-    var avail = Object.keys(ITEMS).filter(function (k) { return g.items.indexOf(k) < 0; });
-    if (avail.length > 0) {
-      g.itemOffer = avail[Math.floor(rng(g)() * avail.length)];
-    } else {
-      g.itemOffer = null;
-    }
+    // 每次交租后固定发放代币：2 张精灵中心券（删牌）+ 1 个精灵球（刷新）
+    g.tokens.centerPass += CONFIG.removalPerRent;
+    g.tokens.pokeBall += CONFIG.rerollPerRent;
+    g.log.push('收到邮件：精灵中心券 ×' + CONFIG.removalPerRent + ' + 精灵球 ×' + CONFIG.rerollPerRent);
 
+    g.itemOffer = rollItemOffer(g);
     g.spinsLeft = RENT[g.rentIndex].spins;
-    g.postRentOffer = true; // 原作：付租后的符号选择强制不常见以上
+    g.postRentOffer = true; // 交租后的首次三选一强制非凡以上
     g.phase = 'rentReward';
     return { ok: true, rent: rent.rent, itemOffer: g.itemOffer };
   }
 
-  // 领取交租奖励物品
+  // 领取交租奖励物品（可跳过；道具可叠加）
   function takeItem(g, itemId) {
     if (g.phase !== 'rentReward') return { ok: false, reason: 'phase' };
-    if (itemId && g.itemOffer === itemId) {
+    if (itemId && g.itemOffer.indexOf(itemId) >= 0) {
       g.items.push(itemId);
       g.log.push('获得物品：' + ITEMS[itemId].name);
     }
+    g.itemOffer = [];
     g.phase = 'spinning';
     return { ok: true };
   }
@@ -341,8 +386,11 @@
     cellGain: cellGain,
     settleGrid: settleGrid,
     applyEvolution: applyEvolution,
+    evolveThresholdOf: evolveThresholdOf,
     rarityWeights: rarityWeights,
+    rarityPercent: rarityPercent,
     rollOffer: rollOffer,
+    rollItemOffer: rollItemOffer,
     spin: spin,
     choose: choose,
     usePokeBall: usePokeBall,

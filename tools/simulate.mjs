@@ -95,6 +95,60 @@ check(E.neighbors(1).length === 5, '边中 5 邻居');
   check(forcedOk, '交租后 240 次三选一无普通档');
 }
 
+// ---- 7 轮 / 道具 3 选 1 / 代币 / 叠加效果 ----
+{
+  check(D.RENT.length === 7, '租金改为 7 轮');
+  check(D.RENT.every(r => r.spins === 5), '每轮固定 5 转');
+  const g = E.createGame(3);
+  g.rentIndex = 2;
+  const offers = E.rollItemOffer(g);
+  check(offers.length === 3 && new Set(offers).size === 3, '交租后道具 3 选 1');
+  check(offers.every(id => ITEMS[id] && ITEMS[id].rarity), '道具奖励带稀有度');
+  g.items = Object.keys(ITEMS);
+  check(E.rollItemOffer(g).length === 3, '道具全拿过后仍能给出 3 个可叠加选项');
+  const g2 = E.createGame(5);
+  g2.coins = 9999;
+  g2.phase = 'rentDue';
+  const before = { c: g2.tokens.centerPass, p: g2.tokens.pokeBall };
+  g2.rentIndex = 2;
+  E.payRent(g2);
+  check(g2.tokens.centerPass === before.c + 2 && g2.tokens.pokeBall === before.p + 1,
+    '每次交租发 2 张删除券 + 1 个精灵球');
+  check(Array.isArray(g2.itemOffer) && g2.itemOffer.length === 3, '交租后 itemOffer 为 3 元素数组');
+}
+{
+  const g = E.createGame(8);
+  g.rentIndex = 2;
+  g.items = ['contract', 'rareCandy'];
+  const w = E.rarityWeights(g);
+  check(Math.abs(w.uncommon - 43.2) < 1e-9, '契约 + 神奇糖果叠加：非凡权重 ×1.44');
+  check(w.common >= 0, '高倍率下普通档权重不为负');
+  g.items.push('luckyEgg', 'luckyEgg');
+  check(E.evolveThresholdOf(g) === 2, '两个幸运蛋把进化阈值降到最低 2');
+  g.items.push('expShare', 'recycle');
+  const r = E.settleGrid(g, new Array(20).fill(null));
+  check(r.total === 3 && r.bySpecies.__other === 3, '学习装置 + 回收叠加：每转额外 +3 金');
+}
+{
+  const g = E.createGame(9);
+  g.rentIndex = 0;
+  let ok = true;
+  for (let i = 0; i < 120; i++) {
+    E.rollItemOffer(g).forEach(id => { if (ITEMS[id].rarity !== 'common') ok = false; });
+  }
+  check(ok, '第 1 次交租前道具也只出普通档（与宝可梦一致）');
+  g.postRentOffer = true;
+  g.rentIndex = 2;
+  let sawCommon = false;
+  for (let i = 0; i < 120; i++) {
+    E.rollItemOffer(g).forEach(id => { if (ITEMS[id].rarity === 'common') sawCommon = true; });
+  }
+  check(sawCommon, '交租后道具不套用「强制非凡」规则，普通道具仍会出现');
+  const pct = E.rarityPercent(g, true);
+  check(pct.common === 68.5 && pct.uncommon === 30 && pct.rare === 1.5,
+    '道具档位展示概率与实际抽取权重一致');
+}
+
 // ---- 策略模拟 ----
 console.log('== 策略模拟（每种策略 200 局）==');
 function runGame(seed, strategy) {
@@ -119,7 +173,7 @@ function runGame(seed, strategy) {
       const r = E.payRent(g);
       if (!r.ok) break;
     } else if (g.phase === 'rentReward') {
-      E.takeItem(g, g.itemOffer);
+      E.takeItem(g, g.itemOffer[0]);
     }
   }
   return { win: g.phase === 'win', floors: g.rentIndex, coins: g.coins, spins: g.totalSpins };
@@ -134,7 +188,7 @@ for (const strategy of ['greedy', 'random', 'skip']) {
     floors += r.floors;
   }
   const rate = (wins / N * 100).toFixed(1);
-  console.log(`${strategy}: 通关率 ${rate}% (${wins}/${N}), 平均交租 ${(floors / N).toFixed(1)}/12`);
+  console.log(`${strategy}: 通关率 ${rate}% (${wins}/${N}), 平均交租 ${(floors / N).toFixed(1)}/${D.CONFIG.rentCount}`);
   if (strategy === 'skip') check(wins / N < 0.70, '全跳过通关率应 <70%（不能稳赢）');
   if (strategy === 'greedy') check(wins / N < 0.95, '贪心策略不应通关率过高（<95%）');
 }

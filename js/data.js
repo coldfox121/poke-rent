@@ -42,30 +42,27 @@
     361: { id: 361, name: '雪童子',   type: 'ice',      base: 1, rarity: 'common',   evolveTo: null }
   };
 
-  // 租金曲线：原作 Wiki 组 ×3.2（转数 5/5/6/6/7/7/8/8/9/9/10/10）
-  // 卡池全上屏后收入大幅提高，按模拟扫描把租金放大 3.2 倍，维持「能赢但不稳赢」
+  // 租金曲线：7 轮 × 固定 5 转，前松后紧；绝对值按模拟扫描调到「能赢但不稳赢」
   var RENT = [
-    { rent: 80,   spins: 5 },
-    { rent: 160,  spins: 5 },
-    { rent: 320,  spins: 6 },
-    { rent: 480,  spins: 6 },
-    { rent: 720,  spins: 7 },
-    { rent: 880,  spins: 7 },
-    { rent: 1040, spins: 8 },
-    { rent: 1200, spins: 8 },
-    { rent: 1600, spins: 9 },
-    { rent: 1760, spins: 9 },
-    { rent: 2080, spins: 10 },
-    { rent: 2490, spins: 10 }
+    { rent: 58,   spins: 5 },
+    { rent: 144,  spins: 5 },
+    { rent: 288,  spins: 5 },
+    { rent: 504,  spins: 5 },
+    { rent: 792,  spins: 5 },
+    { rent: 1152, spins: 5 },
+    { rent: 1728, spins: 5 }
   ];
 
-  // 永久物品：当局生效、不可关闭
+  // 永久物品：当局生效、不可关闭；stackable=false 的道具已拥有后不再出现
   var ITEMS = {
-    coffee:      { id: 'coffee',      name: '提神咖啡',   icon: 'assets/items/coffee.png',      desc: '交不起租时可额外转 2 次（每局一次）' },
-    contract:    { id: 'contract',    name: '坂木的契约', icon: 'assets/items/contract.png',    desc: '交租时 +6 金币抵消；三选一稀有度倍率 ×1.2' },
-    brokenBall:  { id: 'brokenBall',  name: '破碎的精灵球', icon: 'assets/items/broken-ball.png', desc: '3 选 1 变 2 选 1，每次选择 +2 金' },
-    recycle:     { id: 'recycle',     name: '回收',       icon: 'assets/items/recycle.png',     desc: '每次结算额外 +2 金' },
-    conveyor:    { id: 'conveyor',    name: '传送带',     icon: 'assets/items/conveyor.png',    desc: '每转后 20 格整体右移一格' }
+    coffee:      { id: 'coffee',      name: '提神咖啡',   icon: 'assets/items/coffee.png',      desc: '交不起租时可额外转 2 次（每局一次）', rarity: 'common',   stackable: false },
+    contract:    { id: 'contract',    name: '坂木的契约', icon: 'assets/items/contract.png',    desc: '交租时 +6 金币抵消；三选一稀有度倍率 ×1.2（可叠加）', rarity: 'uncommon', stackable: true },
+    brokenBall:  { id: 'brokenBall',  name: '破碎的精灵球', icon: 'assets/items/broken-ball.png', desc: '3 选 1 变 2 选 1，每次选择 +2 金', rarity: 'uncommon', stackable: false },
+    recycle:     { id: 'recycle',     name: '回收',       icon: 'assets/items/recycle.png',     desc: '每次结算额外 +2 金（可叠加）', rarity: 'common',   stackable: true },
+    conveyor:    { id: 'conveyor',    name: '传送带',     icon: 'assets/items/conveyor.png',    desc: '每转后 20 格整体右移一格（可叠加）', rarity: 'common',   stackable: true },
+    expShare:    { id: 'expShare',    name: '学习装置',   icon: 'assets/items/exp-share.png',    desc: '每次结算额外 +1 金（可叠加）', rarity: 'common',   stackable: true },
+    rareCandy:   { id: 'rareCandy',   name: '神奇糖果',   icon: 'assets/items/rare-candy.png',   desc: '三选一稀有度倍率 ×1.2（可叠加）', rarity: 'rare',     stackable: true },
+    luckyEgg:    { id: 'luckyEgg',    name: '幸运蛋',     icon: 'assets/items/lucky-egg.png',    desc: '进化所需上屏次数 -1，最低 2（可叠加）', rarity: 'uncommon', stackable: true }
   };
 
   // 消耗品：一次性
@@ -83,15 +80,19 @@
     evolveThreshold: 4,
     bonusMultiplier: 2,
     baseOfferCount: 3,
+    itemOfferCount: 3,    // 交租后道具 3 选 1
+    removalPerRent: 2,    // 每次交租后赠送精灵中心券
+    rerollPerRent: 1,     // 每次交租后赠送精灵球
     rentCount: RENT.length,
-    rarityBoost: 1.2,     // 坂木的契约提供的稀有度倍率
-    saveVersion: 3,
-    cacheVersion: 4
+    rarityBoost: 1.2,     // 坂木的契约 / 神奇糖果每层的稀有度倍率
+    saveVersion: 4,
+    cacheVersion: 5
   };
 
   // 演出时序（毫秒）：集中放置，后续接调速 UI 时只需覆盖这里
   var ANIM = {
     questionDuration: 500, // 20 格同时变问号的停留时长
+    revealHold: 1000,      // 结果亮出后停留，让玩家看清再开始结算
     settleTotal: 3000,     // 逐格结算总时长，按有收益格数均分
     settleMin: 150,        // 单格最短停留（满配时）
     settleMax: 600,        // 单格最长停留（前期格子少时看得清）

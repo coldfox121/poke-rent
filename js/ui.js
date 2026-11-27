@@ -7,8 +7,9 @@
       ANIM = D.ANIM;
 
   var SAVE_KEY = 'poke-rent-save';
+  var DEX_KEY = 'poke-rent-dex';   // 图鉴跨局保留，与单局存档分离
   var CACHE_V = D.CONFIG.cacheVersion;
-  var game = null;
+  var game = null, dex = [], dexSelected = null;
   // 演出状态：token 递增使旧演出失效，避免「跳过 / 重开」后旧回调继续跑
   var anim = { active: false, token: 0, timer: null };
 
@@ -28,9 +29,35 @@
       items: game.items, tokens: game.tokens, rentIndex: game.rentIndex,
       spinsLeft: game.spinsLeft, totalSpins: game.totalSpins,
       coffeeUsed: game.coffeeUsed, postRentOffer: !!game.postRentOffer, phase: game.phase,
+      itemOffer: game.itemOffer || [],
       lastGrid: game.lastGrid, lastGain: game.lastGain, log: game.log.slice(-50)
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(raw)); } catch (e) {}
+  }
+
+  function loadDex() {
+    try {
+      var s = localStorage.getItem(DEX_KEY);
+      if (s) {
+        var arr = JSON.parse(s);
+        if (Array.isArray(arr)) return arr.filter(function (id) { return !!POKEMON[id]; });
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  function saveDex() {
+    try { localStorage.setItem(DEX_KEY, JSON.stringify(dex)); } catch (e) {}
+  }
+
+  // 首次进入卡池即点亮：开局自带的 6 只也算，跨局保留
+  function lightDex(ids) {
+    var changed = false;
+    (ids || []).forEach(function (id) {
+      if (POKEMON[id] && dex.indexOf(id) < 0) { dex.push(id); changed = true; }
+    });
+    if (changed) saveDex();
+    return changed;
   }
 
   function migrate(raw) {
@@ -49,6 +76,12 @@
     if (!g.evolveCount || typeof g.evolveCount !== 'object') g.evolveCount = {};
     if (!g.contrib || typeof g.contrib !== 'object') g.contrib = {};
     if (typeof g.postRentOffer !== 'boolean') g.postRentOffer = false;
+    // v3 的 itemOffer 是单个 id，v4 起改为数组（纯加法迁移：旧值转成单元素数组）
+    if (typeof g.itemOffer === 'string') g.itemOffer = [g.itemOffer];
+    if (!Array.isArray(g.itemOffer)) g.itemOffer = [];
+    if (typeof g.rentIndex !== 'number' || g.rentIndex < 0) g.rentIndex = 0;
+    // 旧版 12 轮存档的进度已超过新版 7 轮：保留数值，按通关处理，避免数组越界
+    if (g.rentIndex >= D.CONFIG.rentCount && g.phase !== 'win' && g.phase !== 'gameover') g.phase = 'win';
     if (g.phase === 'choosing' || g.phase === 'rentReward') g.phase = 'spinning';
     return g;
   }
@@ -67,6 +100,7 @@
     $('hud-rent').textContent = r ? r.rent : '—';
     $('hud-spins').textContent = game.spinsLeft;
     $('hud-progress').textContent = game.rentIndex + '/' + D.CONFIG.rentCount;
+    $('btn-dex').textContent = '图鉴 ' + dex.length + '/' + Object.keys(POKEMON).length;
     var statusMap = {
       spinning: '按转动开始', choosing: '请选择符号', rentDue: '该交租了',
       rentReward: '选择物品', gameover: '已被赶出', win: '通关！'
@@ -247,21 +281,28 @@
   function showModal(html) {
     $('modal').innerHTML = html;
     $('modal-layer').style.display = 'flex';
+    $('modal-dock').style.display = 'none';
   }
-  function hideModal() { $('modal-layer').style.display = 'none'; }
+  function hideModal() {
+    $('modal-layer').style.display = 'none';
+    $('modal-dock').style.display = 'none';
+  }
 
   function showOffer() {
-    var html = '<h2>选择一只宝可梦</h2><div class="lead">选中的宝可梦会加入卡池；也可以跳过保持卡池干净。</div>'
+    var pct = E.rarityPercent(game);
+    var html = '<h2>选择一只宝可梦</h2><div class="lead">选中的宝可梦会加入卡池；也可以跳过保持卡池干净。可点「收起」对照上轮结果再决定。</div>'
       + (game.postRentOffer ? '<div class="badge">交租后：本次稀有度至少非凡</div>' : '')
       + '<div class="choices">';
     game.offer.forEach(function (id) {
       var mon = POKEMON[id], ty = TYPES[mon.type], rar = RARITY[mon.rarity];
       html += '<div class="choice" data-id="' + id + '"><img src="' + sprite(id) + '" alt="' + mon.name + '"><span class="nm">' + mon.name + '</span>'
         + '<span class="rar" style="color:' + rar.color + ';border-color:' + rar.color + '">' + rar.name + '</span>'
-        + '<span class="ty">' + ty.name + ' · 基础' + mon.base + '</span></div>';
+        + '<span class="ty">' + ty.name + ' · 基础' + mon.base + '</span>'
+        + '<span class="prob">' + rar.name + '档 ' + pct[mon.rarity] + '%</span></div>';
     });
     html += '</div><div class="modal-actions">';
     if ((game.tokens.pokeBall || 0) > 0) html += '<button class="btn" id="m-reroll">精灵球 ×' + game.tokens.pokeBall + ' 刷新</button>';
+    html += '<button class="btn btn-ghost" id="m-hide">收起</button>';
     html += '<button class="btn btn-ghost" id="m-skip">跳过</button></div>';
     showModal(html);
     Array.prototype.forEach.call(document.querySelectorAll('.choice'), function (el) {
@@ -274,9 +315,14 @@
           if (game.lastGrid[i] === null || game.lastGrid[i] === undefined) empty.push(i);
         }
         if (empty.length > 0) game.lastGrid[empty[Math.floor(Math.random() * empty.length)]] = id;
+        lightDex([id]);
         hideModal(); save(); render(); afterChoose();
       };
     });
+    $('m-hide').onclick = function () {
+      $('modal-layer').style.display = 'none';
+      $('modal-dock').style.display = 'block';
+    };
     $('m-skip').onclick = function () {
       E.choose(game, null); hideModal(); save(); render(); afterChoose();
     };
@@ -316,26 +362,87 @@
   }
 
   function showItemReward() {
-    if (!game.itemOffer) { game.phase = 'spinning'; save(); render(); return; }
-    var it = ITEMS[game.itemOffer];
-    var html = '<h2>交租奖励</h2><div class="lead">选择一件永久物品加入本局。</div>';
-    html += '<div class="choices" style="grid-template-columns:1fr"><div class="choice"><img src="' + icon(it.icon) + '" alt="' + it.name + '"><span class="nm">' + it.name + '</span><span class="ty">' + it.desc + '</span></div></div>';
-    html += '<div class="modal-actions"><button class="btn btn-ghost" id="m-skip-item">不要</button><button class="btn btn-spin" id="m-take">收下</button></div>';
+    var offers = (game.itemOffer || []).filter(function (id) { return !!ITEMS[id]; });
+    if (offers.length === 0) { game.phase = 'spinning'; save(); render(); return; }
+    var pct = E.rarityPercent(game, true);
+    var html = '<h2>交租奖励 · 道具 3 选 1</h2><div class="lead">按与宝可梦相同的稀有度权重抽取，选一件永久物品加入本局；同类效果可叠加。</div>';
+    html += '<div class="choices">';
+    offers.forEach(function (id) {
+      var it = ITEMS[id], rar = RARITY[it.rarity];
+      html += '<div class="choice" data-item="' + id + '"><img src="' + icon(it.icon) + '" alt="' + it.name + '">'
+        + '<span class="nm">' + it.name + '</span>'
+        + '<span class="rar" style="color:' + rar.color + ';border-color:' + rar.color + '">' + rar.name + '</span>'
+        + '<span class="ty">' + it.desc + '</span>'
+        + '<span class="prob">' + rar.name + '档 ' + pct[it.rarity] + '%</span></div>';
+    });
+    html += '</div><div class="modal-actions"><button class="btn btn-ghost" id="m-skip-item">都不要</button></div>';
     showModal(html);
-    $('m-take').onclick = function () {
-      E.takeItem(game, game.itemOffer);
-      hideModal(); save(); render();
-    };
+    Array.prototype.forEach.call(document.querySelectorAll('.choice[data-item]'), function (el) {
+      el.onclick = function () {
+        E.takeItem(game, el.dataset.item);
+        hideModal(); save(); render();
+      };
+    });
     $('m-skip-item').onclick = function () {
       E.takeItem(game, null);
       hideModal(); save(); render();
     };
   }
 
+  function dexFunctionText(id) {
+    var mon = POKEMON[id], ty = TYPES[mon.type];
+    var beats = ty.beats.map(function (k) { return TYPES[k].name; }).join('、');
+    var s = '基础产出 ' + mon.base + ' 金；相邻有被自己克制（' + beats + '）的宝可梦时，每个独立结算一次 ×2，多次相加。';
+    if (mon.evolveTo) s += ' 累计上屏 ' + E.evolveThresholdOf(game) + ' 次进化为' + POKEMON[mon.evolveTo].name + '，基础产出提升。';
+    s += ' 稀有度 ' + RARITY[mon.rarity].name + '，决定三选一中的抽取权重。';
+    return s;
+  }
+
+  function renderDexDetail(id) {
+    var box = $('dex-detail');
+    if (!box) return;
+    if (!id || dex.indexOf(id) < 0) {
+      box.innerHTML = '<p>尚未点亮：把这只宝可梦选入卡池即可解锁图鉴资料（跨局保留）。</p>';
+      return;
+    }
+    var mon = POKEMON[id], ty = TYPES[mon.type], rar = RARITY[mon.rarity];
+    var official = (window.PR.dex && window.PR.dex[id]) || '暂无官方图鉴说明。';
+    box.innerHTML = '<img src="' + sprite(id) + '" alt="' + mon.name + '">'
+      + '<div class="body"><h3>' + mon.name + ' <span class="rar" style="color:' + rar.color + ';border-color:' + rar.color + '">' + rar.name + '</span>'
+      + '<span class="badge">' + ty.name + '属性</span></h3>'
+      + '<p>图鉴说明：' + official + '</p>'
+      + '<div class="fn">游戏内功能：' + dexFunctionText(id) + '</div></div>';
+  }
+
+  function showDex() {
+    var ids = Object.keys(POKEMON).map(Number);
+    var html = '<h2>宝可梦图鉴 <span class="badge">' + dex.length + '/' + ids.length + '</span></h2>'
+      + '<div class="lead">首次选入卡池即点亮，跨局保留。官方图鉴说明取自 PokeAPI 简体中文版。</div><div class="dex-grid">';
+    ids.forEach(function (id) {
+      var on = dex.indexOf(id) >= 0, mon = POKEMON[id], rar = RARITY[mon.rarity];
+      html += '<div class="dex-card' + (on ? '' : ' locked') + '" data-dex="' + id + '">'
+        + '<img src="' + sprite(id) + '" alt="">'
+        + '<span class="nm">' + (on ? mon.name : '???') + '</span>'
+        + '<span class="rar" style="color:' + (on ? rar.color : '#999') + '">' + (on ? rar.name : '未点亮') + '</span></div>';
+    });
+    html += '</div><div class="dex-detail" id="dex-detail"></div>'
+      + '<div class="modal-actions"><button class="btn" id="m-dex-close">关闭</button></div>';
+    $('dex-modal').innerHTML = html;
+    $('dex-layer').style.display = 'flex';
+    Array.prototype.forEach.call(document.querySelectorAll('.dex-card'), function (el) {
+      el.onclick = function () {
+        dexSelected = parseInt(el.dataset.dex, 10);
+        renderDexDetail(dexSelected);
+      };
+    });
+    $('m-dex-close').onclick = function () { $('dex-layer').style.display = 'none'; };
+    renderDexDetail(dexSelected !== null ? dexSelected : (dex[0] || null));
+  }
+
   function showEnd(win) {
     var html = '<h2>' + (win ? '通关！' : '被赶出公寓') + '</h2>';
-    html += '<div class="lead">' + (win ? '12 次房租全部缴清，火箭队暂时放过了你。' : '金币不够交租，你被赶了出去。') + '</div>';
-    html += '<div class="rent-num">' + game.rentIndex + '/12</div>';
+    html += '<div class="lead">' + (win ? D.CONFIG.rentCount + ' 次房租全部缴清，火箭队暂时放过了你。' : '金币不够交租，你被赶了出去。') + '</div>';
+    html += '<div class="rent-num">' + game.rentIndex + '/' + D.CONFIG.rentCount + '</div>';
     html += '<div class="lead">总转动 ' + game.totalSpins + ' 次 · 剩余 ' + game.coins + ' 金</div>';
     html += '<div class="modal-actions"><button class="btn btn-spin" id="m-again">再来一局</button></div>';
     showModal(html);
@@ -345,7 +452,9 @@
   function restart() {
     abortAnim(); // 演出中改存档必须先中止，否则旧回调会继续改状态
     game = E.createGame();
+    lightDex(game.pool); // 图鉴跨局保留，不随重开清零
     $('modal-layer').style.display = 'none';
+    $('modal-dock').style.display = 'none';
     save(); render();
   }
 
@@ -430,51 +539,55 @@
         cell.classList.remove('question');
       });
       paintCells(res.grid); // 20 格同时亮出结果
-      // 阶段 B：行优先逐格结算，金币数字跟着涨
-      // 阶段 B：行优先逐格结算，金币数字跟着涨
-      // 空格立即跳过不浪费演出时间；有收益格按总时长均分，单格 150~600ms
-      var gainCount = res.info.filter(function (x) { return x.gain > 0; }).length;
-      var step = Math.max(ANIM.settleMin, Math.min(ANIM.settleMax,
-        Math.round(ANIM.settleTotal / Math.max(1, gainCount))));
-      var idx = 0, shown = res.startCoins;
-      function settleOne() {
-        if (idx >= res.info.length) {
-          later(token, function () {
-            $('gain-line').innerHTML = '上转收益 <span class="big">+' + res.gain + '</span> 金';
-            finishAnim(token);
-          }, ANIM.tailDuration);
-          return;
-        }
-        var i = idx++, info = res.info[i], cell = cells[i], float = null;
-        if (info.gain > 0 && cell) {
-          cell.classList.add('settling');
-          // 贡献金币的宝可梦本体跳一下
-          var spriteImg = cell.querySelector('img');
-          if (spriteImg) {
-            spriteImg.classList.remove('bounce');
-            void spriteImg.offsetWidth;
-            spriteImg.classList.add('bounce');
+      $('machine-status').textContent = '结果已出，准备结算…';
+      // 结果先停 1 秒，让玩家看清排布与克制关系，再开始逐格结算
+      later(token, function () {
+        $('machine-status').textContent = '逐格结算中…';
+        // 阶段 B：行优先逐格结算，金币数字跟着涨
+        // 空格立即跳过不浪费演出时间；有收益格按总时长均分，单格 150~600ms
+        var gainCount = res.info.filter(function (x) { return x.gain > 0; }).length;
+        var step = Math.max(ANIM.settleMin, Math.min(ANIM.settleMax,
+          Math.round(ANIM.settleTotal / Math.max(1, gainCount))));
+        var idx = 0, shown = res.startCoins;
+        function settleOne() {
+          if (idx >= res.info.length) {
+            later(token, function () {
+              $('gain-line').innerHTML = '上转收益 <span class="big">+' + res.gain + '</span> 金';
+              finishAnim(token);
+            }, ANIM.tailDuration);
+            return;
           }
-          float = document.createElement('div');
-          float.className = 'float-gain';
-          float.innerHTML = '+' + info.gain + (info.count > 0
-            ? '<small>克' + info.types.join('/') + ' ×' + info.count + '</small>' : '');
-          cell.appendChild(float);
-          flyCoin(cell);
-          shown += info.gain;
-          tickCoins(shown);
+          var i = idx++, info = res.info[i], cell = cells[i], float = null;
+          if (info.gain > 0 && cell) {
+            cell.classList.add('settling');
+            // 贡献金币的宝可梦本体跳一下
+            var spriteImg = cell.querySelector('img');
+            if (spriteImg) {
+              spriteImg.classList.remove('bounce');
+              void spriteImg.offsetWidth;
+              spriteImg.classList.add('bounce');
+            }
+            float = document.createElement('div');
+            float.className = 'float-gain';
+            float.innerHTML = '+' + info.gain + (info.count > 0
+              ? '<small>克' + info.types.join('/') + ' ×' + info.count + '</small>' : '');
+            cell.appendChild(float);
+            flyCoin(cell);
+            shown += info.gain;
+            tickCoins(shown);
+          }
+          if (info.gain === 0) {
+            settleOne(); // 空格不占演出时间
+            return;
+          }
+          later(token, function () {
+            if (cell) cell.classList.remove('settling');
+            if (float && float.parentNode) float.parentNode.removeChild(float);
+            settleOne();
+          }, step);
         }
-        if (info.gain === 0) {
-          settleOne(); // 空格不占演出时间
-          return;
-        }
-        later(token, function () {
-          if (cell) cell.classList.remove('settling');
-          if (float && float.parentNode) float.parentNode.removeChild(float);
-          settleOne();
-        }, step);
-      }
-      settleOne();
+        settleOne();
+      }, ANIM.revealHold);
     }, ANIM.questionDuration);
   }
 
@@ -495,6 +608,8 @@
   function bind() {
     $('btn-spin').onclick = onSpin;
     $('btn-skip').onclick = skipAnim;
+    $('btn-dex').onclick = showDex;
+    $('modal-dock').onclick = function () { showOffer(); };
     $('btn-restart').onclick = function () {
       if (confirm('确定重开？当前进度会丢失。')) restart();
     };
@@ -502,6 +617,8 @@
 
   function init() {
     game = load() || E.createGame();
+    dex = loadDex();
+    lightDex(game.pool); // 开局自带的 6 只按「进入卡池」规则点亮
     bind();
     render();
     if (game.phase === 'rentDue') showRent();
