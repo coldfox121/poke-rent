@@ -35,10 +35,8 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 .cell.empty{border-style:dashed;color:var(--line2)}
 .cell.spinning{animation:cellspin .18s linear}
 @keyframes cellspin{0%{transform:translateY(-4px);opacity:.5}100%{transform:translateY(0);opacity:1}}
-.cell.rolling{overflow:hidden;background:#f2ede1}
-.cell.rolling .roll-strip{position:absolute;left:0;right:0;top:0;height:300%;display:flex;flex-direction:column;align-items:center;justify-content:space-around;animation:reelroll .42s linear infinite}
-.cell.rolling .roll-strip img{width:56%;height:28%;object-fit:contain;image-rendering:pixelated;opacity:.85}
-@keyframes reelroll{0%{transform:translateY(-66.66%)}100%{transform:translateY(0)}}
+.cell.question{background:#f5f0e4;border-style:dashed;color:#b8a98a;font-size:26px;font-weight:700;animation:qfade .35s ease-in-out infinite alternate}
+@keyframes qfade{from{opacity:.45}to{opacity:1}}
 .cell img.bounce{animation:spritebounce .42s cubic-bezier(.2,.8,.3,1)}
 @keyframes spritebounce{0%{transform:translateY(0) scale(1)}35%{transform:translateY(-10px) scale(1.16)}65%{transform:translateY(0) scale(.94)}100%{transform:translateY(0) scale(1)}}
 
@@ -83,6 +81,8 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 .choice img{width:64px;height:64px;image-rendering:pixelated;object-fit:contain}
 .choice .nm{display:block;font-weight:600;margin-top:6px}
 .choice .ty{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.choice .rar{display:inline-block;font-size:10px;font-weight:600;border:1px solid;border-radius:8px;padding:0 6px;margin-top:4px}
+.pool-rar{font-size:10px;font-weight:600;opacity:.85}
 .modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
 .rent-num{font-size:34px;font-weight:600;color:var(--accent);margin:10px 0}
 .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:#e1f5ee;color:#085041;border:1px solid #9fe1cb;margin-left:6px}

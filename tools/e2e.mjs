@@ -28,14 +28,14 @@ check(await page.$$eval('#pool .pool-chip', els => els.length) === 6, '初始卡
 // 第一次转动：验证演出可跳过
 await page.click('#btn-spin');
 check(await page.$eval('#btn-skip', el => el.style.display !== 'none'), '演出期间显示跳过按钮');
-check(await page.$$eval('#reel .cell.rolling', els => els.length) === 20, '20 格进入翻滚动画');
-check(await page.$$eval('#reel .cell.rolling .roll-strip img', els => els.length) >= 20, '滚轮条内含滚动精灵图');
-const rollTransform = await page.$eval('#reel .cell', el => getComputedStyle(el).transform);
-check(rollTransform === 'none' || rollTransform === 'matrix(1, 0, 0, 1, 0, 0)', '翻滚时格子本身不变形');
+check(await page.$$eval('#reel .cell.question', els => els.length) === 20, '20 格同时变问号');
+check(await page.$$eval('#reel .cell.rolling, #reel .roll-strip', els => els.length) === 0, '不再使用滚动精灵条');
+check(await page.$$eval('#reel .cell.question', els => els.every(e => e.textContent === '?')), '问号内容一致');
 await page.click('#btn-skip');
 await page.waitForSelector('.modal', { visible: true });
 check(await page.$eval('#btn-skip', el => el.style.display) === 'none', '跳过后按钮隐藏');
 check(await page.$$eval('.choice', els => els.length) === 3, '转后出现 3 选 1');
+check(await page.$$eval('.choice .rar', els => els.length) === 3, '三选一显示稀有度标签');
 
 // 验证精灵图加载成功
 const imgOk = await page.$$eval('#reel .cell img', imgs =>
@@ -60,7 +60,7 @@ const poolAfter = await page.$$eval('#pool .pool-chip', els => els.length);
 check(poolAfter >= poolBefore, '卡池不减少（选新符号会增加）');
 const gridNames = await page.$$eval('#reel .cell:not(.empty) .nm', els => els.map(e => e.textContent));
 check(gridNames.includes(chosenName), `选中的 ${chosenName} 立即填入空格上屏`);
-check(gridNames.length === 5, '原 4 格 + 新填 1 格 = 5 格');
+check(gridNames.length === 7, '卡池 6 只全上屏 + 新填 1 格 = 7 格');
 
 // 第二次转动：完整演出，收集逐格标注
 await page.click('#btn-spin');

@@ -4,15 +4,15 @@
 
 所有静态资源引用必须带 `?v=N`，且 `index.html` 与 JS 内部动态拼接的版本号必须一致：
 
-- `index.html` 中 `style.css?v=3`、`js/data.js?v=3`、`js/engine.js?v=3`、`js/ui.js?v=3`
+- `index.html` 中 `style.css?v=4`、`js/data.js?v=4`、`js/engine.js?v=4`、`js/ui.js?v=4`
 - `js/ui.js` 中 `CACHE_V = D.CONFIG.cacheVersion`，与上面保持同步
-- `js/data.js` 中 `CONFIG.cacheVersion = 3`
+- `js/data.js` 中 `CONFIG.cacheVersion = 4`
 
 **改任何静态文件必须同步递增所有 `?v=N`**，否则浏览器缓存会导致用户看到旧版本。
 
 ## 存档版本 `SAVE_VERSION`
 
-`js/data.js` 中 `CONFIG.saveVersion`，当前为 2（v1.1.0 新增 `contrib` 按物种贡献字段）。
+`js/data.js` 中 `CONFIG.saveVersion`，当前为 3（v1.1.0 新增 `contrib`；v1.3.0 新增 `postRentOffer` 交租后强制稀有度标记）。
 
 升级规则：
 

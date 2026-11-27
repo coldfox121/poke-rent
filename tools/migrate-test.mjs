@@ -41,6 +41,7 @@ check(migrated.tokens && migrated.tokens.pokeBall === 0, '补齐 tokens 字段')
 check(Array.isArray(migrated.items) && migrated.items.length === 0, '补齐 items 字段');
 check(typeof migrated.evolveCount === 'object', '补齐 evolveCount 字段');
 check(migrated.contrib && Object.keys(migrated.contrib).length === 0, '旧档补齐 contrib 空对象');
+check(migrated.postRentOffer === false, '旧档补齐 postRentOffer 字段');
 check(migrated.phase === 'spinning', '旧档 choosing/rentReward 状态回退到 spinning');
 
 // 测试3：未知字段原样保留

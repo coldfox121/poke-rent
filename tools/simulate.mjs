@@ -32,16 +32,18 @@ console.log('== 规则单测 ==');
   const total = Object.keys(g.contrib).reduce((s, k) => s + g.contrib[k], 0);
   check(total > 0, 'spin 写入本局贡献累计');
 }
-// 填充格数随交租增长，上限 20
+// 卡池每种符号每转各上屏一次（原作逻辑），卡池超过 20 时随机抽 20
 {
   const g = E.createGame(11);
-  const countAt = idx => { g.rentIndex = idx; return E.rollGrid(g).filter(x => x !== null).length; };
-  check(countAt(0) === 4, '第 1 轮填 4 格');
-  check(countAt(5) === 9, '第 6 轮填 9 格');
-  check(countAt(11) === 15, '第 12 轮填 15 格');
-  check(countAt(30) === 20, '填充数封顶 20 格');
-  g.rentIndex = 11;
-  check(E.rollGrid(g).length === 20, '网格始终 20 格，满格时无空位可填');
+  check(g.pool.length === 6, '起始卡池 6 只');
+  const filled = E.rollGrid(g).filter(x => x !== null);
+  check(filled.length === 6, '卡池 6 只 → 上屏 6 只');
+  check(new Set(filled).size === 6, '上屏的 6 只各出现一次（无重复）');
+  g.pool = [1, 2, 43, 4, 5, 37, 7, 8, 54, 25, 26, 81, 50, 51, 95, 86, 87, 361, 1, 4]; // 18 种 + 2 重复
+  const full = E.rollGrid(g).filter(x => x !== null);
+  check(full.length === 20, '卡池 20 只 → 上屏 20 格满格');
+  check(new Set(full).size === 18, '卡池中重复物种照原作重复上屏');
+  check(E.rollGrid(g).length === 20, '网格始终 20 格');
 }
 {
   const grid = new Array(20).fill(4);
@@ -57,6 +59,40 @@ check(E.neighbors(1).length === 5, '边中 5 邻居');
   const g = E.createGame(1);
   for (let i = 0; i < 4; i++) E.applyEvolution(g, new Array(20).fill(4));
   check(g.pool.includes(5) && !g.pool.includes(4), '累计 4 次上屏触发进化并替换卡池');
+}
+
+// ---- 稀有度 ----
+{
+  const g = E.createGame(31);
+  g.rentIndex = 0;
+  let w = E.rarityWeights(g);
+  check(w.common === 100 && w.uncommon === 0 && w.rare === 0, '第 1 次交租前只出普通');
+  g.rentIndex = 2;
+  w = E.rarityWeights(g);
+  check(Math.abs(w.common - 68.5) < 1e-9 && Math.abs(w.uncommon - 30) < 1e-9 && Math.abs(w.rare - 1.5) < 1e-9,
+    '1.0x 权重 = 普通68.5 / 非凡30 / 稀有1.5（非常稀有的0.5并入普通）');
+  g.items.push('contract');
+  w = E.rarityWeights(g);
+  check(Math.abs(w.uncommon - 36) < 1e-9 && Math.abs(w.rare - 1.8) < 1e-9, '坂木的契约：稀有度倍率 ×1.2');
+  g.postRentOffer = true;
+  w = E.rarityWeights(g);
+  check(w.common === 0, '交租后首次三选一强制非凡以上');
+}
+{
+  const g = E.createGame(97);
+  g.rentIndex = 0;
+  let allCommon = true;
+  for (let i = 0; i < 120; i++) {
+    E.rollOffer(g).forEach(id => { if (D.POKEMON[id].rarity !== 'common') allCommon = false; });
+  }
+  check(allCommon, '前期 120 次三选一全部为普通档');
+  g.rentIndex = 2;
+  g.postRentOffer = true;
+  let forcedOk = true;
+  for (let i = 0; i < 240; i++) {
+    E.rollOffer(g).forEach(id => { if (D.POKEMON[id].rarity === 'common') forcedOk = false; });
+  }
+  check(forcedOk, '交租后 240 次三选一无普通档');
 }
 
 // ---- 策略模拟 ----

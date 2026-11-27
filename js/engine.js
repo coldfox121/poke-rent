@@ -4,7 +4,7 @@
 
   var D = (global.PR && global.PR.data) || require('./data.js'),
       TYPES = D.TYPES, POKEMON = D.POKEMON, RENT = D.RENT,
-      ITEMS = D.ITEMS, CONFIG = D.CONFIG;
+      RARITY = D.RARITY, ITEMS = D.ITEMS, CONFIG = D.CONFIG;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -32,6 +32,7 @@
       spinsLeft: RENT[0].spins,
       totalSpins: 0,
       coffeeUsed: false,
+      postRentOffer: false,       // 交租后的首次三选一强制非凡以上
       phase: 'spinning',          // spinning | choosing | rentDue | gameover | win
       offer: [],                  // 当前 3 选 1
       lastGrid: [],               // 上一转的 20 格
@@ -50,21 +51,26 @@
     return p[Math.floor(rng(g)() * p.length)];
   }
 
-  // 生成 20 格：只填部分格子（随进度增加），空格不产出；按传送带右移
+  // 生成 20 格：卡池里每种符号每转各上屏一次，随机铺位；卡池 > 20 时随机抽 20 个
+  // 例：卡池 6 只 → 上屏 6 只 + 14 个空格（对齐原作：牌组即卡池，空格随构筑逐步填满）
   function rollGrid(g) {
+    var pool = g.pool.slice();
+    for (var s = pool.length - 1; s > 0; s--) {
+      var j = Math.floor(rng(g)() * (s + 1));
+      var tmp = pool[s]; pool[s] = pool[j]; pool[j] = tmp;
+    }
+    var place = pool.slice(0, CONFIG.cellCount);
     var grid = new Array(CONFIG.cellCount).fill(null);
-    var fill = Math.min(CONFIG.fillBase + g.rentIndex * CONFIG.fillPerRent, CONFIG.fillMax, CONFIG.cellCount);
-    // 随机选 fill 个位置放置符号
     var positions = [];
     for (var p = 0; p < CONFIG.cellCount; p++) positions.push(p);
-    for (var k = 0; k < fill; k++) {
-      var swap = k + Math.floor(rng(g)() * (CONFIG.cellCount - k));
-      var tmp = positions[k]; positions[k] = positions[swap]; positions[swap] = tmp;
+    for (var k = positions.length - 1; k > 0; k--) {
+      var q = Math.floor(rng(g)() * (k + 1));
+      var t = positions[k]; positions[k] = positions[q]; positions[q] = t;
     }
-    for (var i = 0; i < fill; i++) grid[positions[i]] = pickFromPool(g);
+    for (var i = 0; i < place.length; i++) grid[positions[i]] = place[i];
     if (g.items.indexOf('conveyor') >= 0 && grid.length > 0) {
       var last = grid[grid.length - 1];
-      for (var j = grid.length - 1; j > 0; j--) grid[j] = grid[j - 1];
+      for (var m = grid.length - 1; m > 0; m--) grid[m] = grid[m - 1];
       grid[0] = last;
     }
     return grid;
@@ -148,24 +154,47 @@
     return evolved;
   }
 
-  // 生成 3 选 1 候选：从全局 18 只中抽取，优先未拥有的物种以形成构筑
+  // 稀有度档位权重：原作简化版 1.0x = 常见68% / 非凡30% / 稀有1.5%
+  // 第 1 次交租前只出普通，之后解锁非凡，第 2 次交租后解锁稀有；
+  // 交租后的首次三选一强制非凡以上；坂木的契约把非普通档权重 ×1.2
+  function rarityWeights(g) {
+    var boost = g.items.indexOf('contract') >= 0 ? CONFIG.rarityBoost : 1;
+    var w = {
+      common:   100 - RARITY.uncommon.weight * boost - RARITY.rare.weight * boost,
+      uncommon: RARITY.uncommon.weight * boost,
+      rare:     RARITY.rare.weight * boost
+    };
+    if (g.rentIndex < 1) { w.common += w.uncommon + w.rare; w.uncommon = 0; w.rare = 0; }
+    else if (g.rentIndex < 2) { w.common += w.rare; w.rare = 0; }
+    if (g.postRentOffer && g.rentIndex >= 2) w.common = 0;
+    return w;
+  }
+
+  function pickTier(g, w) {
+    var total = w.common + w.uncommon + w.rare;
+    if (total <= 0) return 'uncommon';
+    var r = rng(g)() * total;
+    if (r < w.common) return 'common';
+    if (r < w.common + w.uncommon) return 'uncommon';
+    return 'rare';
+  }
+
+  // 生成三选一：先按权重抽稀有度档，再从该档里抽具体宝可梦
   function rollOffer(g) {
     var n = g.items.indexOf('brokenBall') >= 0 ? CONFIG.baseOfferCount - 1 : CONFIG.baseOfferCount;
     if (g.items.indexOf('brokenBall') >= 0) g.coins += 2;
-    var all = Object.keys(POKEMON).map(Number);
-    var owned = {};
-    g.pool.forEach(function (id) { owned[id] = true; });
-    // 排序：未拥有的优先，其次已拥有的
-    all.sort(function (a, b) { return (owned[a] ? 1 : 0) - (owned[b] ? 1 : 0); });
-    // 在未拥有里随机取，不足则补已拥有
-    var candidateCount = all.filter(function (id) { return !owned[id]; }).length;
-    var out = [];
-    var guard = 0;
-    while (out.length < n && guard < 200) {
+    var byTier = { common: [], uncommon: [], rare: [] };
+    Object.keys(POKEMON).forEach(function (k) {
+      var mon = POKEMON[k];
+      byTier[mon.rarity].push(mon.id);
+    });
+    var w = rarityWeights(g), out = [], guard = 0;
+    while (out.length < n && guard < 300) {
       guard++;
-      var upper = Math.max(candidateCount, 1);
-      var idx = Math.floor(rng(g)() * Math.min(upper + 2, all.length));
-      var id = all[idx];
+      var tier = pickTier(g, w);
+      var arr = byTier[tier];
+      if (!arr || arr.length === 0) continue;
+      var id = arr[Math.floor(rng(g)() * arr.length)];
       if (out.indexOf(id) >= 0) continue;
       out.push(id);
     }
@@ -205,8 +234,9 @@
     if (speciesId !== null && speciesId !== undefined) {
       if (g.offer.indexOf(speciesId) < 0) return { ok: false, reason: 'notInOffer' };
       g.pool.push(speciesId); // 卡池污染：选中的符号加入卡池
-      g.log.push('加入卡池：' + POKEMON[speciesId].name);
+      g.log.push('加入卡池：' + POKEMON[speciesId].name + '（' + RARITY[POKEMON[speciesId].rarity].name + '）');
     }
+    g.postRentOffer = false; // 强制稀有度的三选一已用完
     if (g.spinsLeft <= 0) {
       g.phase = 'rentDue';
     } else {
@@ -282,6 +312,7 @@
     }
 
     g.spinsLeft = RENT[g.rentIndex].spins;
+    g.postRentOffer = true; // 原作：付租后的符号选择强制不常见以上
     g.phase = 'rentReward';
     return { ok: true, rent: rent.rent, itemOffer: g.itemOffer };
   }
@@ -310,6 +341,7 @@
     cellGain: cellGain,
     settleGrid: settleGrid,
     applyEvolution: applyEvolution,
+    rarityWeights: rarityWeights,
     rollOffer: rollOffer,
     spin: spin,
     choose: choose,

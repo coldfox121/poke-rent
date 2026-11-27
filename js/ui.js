@@ -2,7 +2,8 @@
 (function () {
   'use strict';
   var D = window.PR.data, E = window.PR.engine,
-      POKEMON = D.POKEMON, TYPES = D.TYPES, ITEMS = D.ITEMS, TOKENS = D.TOKENS, RENT = D.RENT,
+      POKEMON = D.POKEMON, TYPES = D.TYPES, RARITY = D.RARITY,
+      ITEMS = D.ITEMS, TOKENS = D.TOKENS, RENT = D.RENT,
       ANIM = D.ANIM;
 
   var SAVE_KEY = 'poke-rent-save';
@@ -26,7 +27,7 @@
       contrib: game.contrib || {},
       items: game.items, tokens: game.tokens, rentIndex: game.rentIndex,
       spinsLeft: game.spinsLeft, totalSpins: game.totalSpins,
-      coffeeUsed: game.coffeeUsed, phase: game.phase,
+      coffeeUsed: game.coffeeUsed, postRentOffer: !!game.postRentOffer, phase: game.phase,
       lastGrid: game.lastGrid, lastGain: game.lastGain, log: game.log.slice(-50)
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(raw)); } catch (e) {}
@@ -47,6 +48,7 @@
     if (!Array.isArray(g.log)) g.log = [];
     if (!g.evolveCount || typeof g.evolveCount !== 'object') g.evolveCount = {};
     if (!g.contrib || typeof g.contrib !== 'object') g.contrib = {};
+    if (typeof g.postRentOffer !== 'boolean') g.postRentOffer = false;
     if (g.phase === 'choosing' || g.phase === 'rentReward') g.phase = 'spinning';
     return g;
   }
@@ -119,6 +121,11 @@
       var label = document.createElement('span');
       label.textContent = mon.name;
       chip.appendChild(label);
+      var rar = document.createElement('span');
+      rar.className = 'pool-rar';
+      rar.style.color = RARITY[mon.rarity].color;
+      rar.textContent = RARITY[mon.rarity].name.charAt(0);
+      chip.appendChild(rar);
       if (game.evolveCount[id]) {
         var evo = document.createElement('span');
         evo.className = 'evo';
@@ -244,10 +251,14 @@
   function hideModal() { $('modal-layer').style.display = 'none'; }
 
   function showOffer() {
-    var html = '<h2>选择一只宝可梦</h2><div class="lead">选中的宝可梦会加入卡池；也可以跳过保持卡池干净。</div><div class="choices">';
+    var html = '<h2>选择一只宝可梦</h2><div class="lead">选中的宝可梦会加入卡池；也可以跳过保持卡池干净。</div>'
+      + (game.postRentOffer ? '<div class="badge">交租后：本次稀有度至少非凡</div>' : '')
+      + '<div class="choices">';
     game.offer.forEach(function (id) {
-      var mon = POKEMON[id], ty = TYPES[mon.type];
-      html += '<div class="choice" data-id="' + id + '"><img src="' + sprite(id) + '" alt="' + mon.name + '"><span class="nm">' + mon.name + '</span><span class="ty">' + ty.name + ' · 基础' + mon.base + '</span></div>';
+      var mon = POKEMON[id], ty = TYPES[mon.type], rar = RARITY[mon.rarity];
+      html += '<div class="choice" data-id="' + id + '"><img src="' + sprite(id) + '" alt="' + mon.name + '"><span class="nm">' + mon.name + '</span>'
+        + '<span class="rar" style="color:' + rar.color + ';border-color:' + rar.color + '">' + rar.name + '</span>'
+        + '<span class="ty">' + ty.name + ' · 基础' + mon.base + '</span></div>';
     });
     html += '</div><div class="modal-actions">';
     if ((game.tokens.pokeBall || 0) > 0) html += '<button class="btn" id="m-reroll">精灵球 ×' + game.tokens.pokeBall + ' 刷新</button>';
@@ -346,7 +357,7 @@
       el.classList.remove('bounce');
     });
     Array.prototype.forEach.call($('reel').children, function (el) {
-      el.classList.remove('rolling', 'settling');
+      el.classList.remove('rolling', 'question', 'settling');
       el.style.animationDelay = '';
     });
   }
@@ -405,36 +416,21 @@
     showOffer();
   }
 
-  // 滚轮条：格子内 3 张图循环滚动，格子边框与页面完全不动
-  function startRoll(cell, speciesList, colDelay) {
-    cell.innerHTML = '';
-    cell.classList.add('rolling');
-    var strip = document.createElement('div');
-    strip.className = 'roll-strip';
-    strip.style.animationDelay = '-' + (colDelay % 420) + 'ms';
-    speciesList.forEach(function (id) {
-      var img = document.createElement('img');
-      img.src = sprite(id); img.alt = '';
-      strip.appendChild(img);
-    });
-    cell.appendChild(strip);
+  // 阶段 A：所有格子同时变问号，格子边框和页面完全不动
+  function showQuestion(cell) {
+    cell.className = 'cell question';
+    cell.textContent = '?';
   }
 
   function playSpin(token, res) {
     var cells = $('reel').children;
-    // 阶段 A：滚轮翻滚，按列错开；候选图取本转实际出现的物种，不足补卡池
-    var rollIds = res.info.map(function (x) { return x.id; }).filter(function (id) { return id && POKEMON[id]; });
-    if (rollIds.length === 0) rollIds = game.pool.slice(0, 3);
-    Array.prototype.forEach.call(cells, function (cell, i) {
-      var picks = [];
-      for (var k = 0; k < 3; k++) picks.push(rollIds[(i + k * 3) % rollIds.length]);
-      startRoll(cell, picks, Math.floor(i / D.CONFIG.cols) * ANIM.rollStagger);
-    });
+    Array.prototype.forEach.call(cells, showQuestion);
     later(token, function () {
       Array.prototype.forEach.call(cells, function (cell) {
-        cell.classList.remove('rolling');
+        cell.classList.remove('question');
       });
-      paintCells(res.grid);
+      paintCells(res.grid); // 20 格同时亮出结果
+      // 阶段 B：行优先逐格结算，金币数字跟着涨
       // 阶段 B：行优先逐格结算，金币数字跟着涨
       // 空格立即跳过不浪费演出时间；有收益格按总时长均分，单格 150~600ms
       var gainCount = res.info.filter(function (x) { return x.gain > 0; }).length;
@@ -479,7 +475,7 @@
         }, step);
       }
       settleOne();
-    }, ANIM.rollDuration + (D.CONFIG.cols - 1) * ANIM.rollStagger);
+    }, ANIM.questionDuration);
   }
 
   function onSpin() {
