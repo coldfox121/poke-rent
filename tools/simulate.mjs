@@ -32,6 +32,17 @@ console.log('== 规则单测 ==');
   const total = Object.keys(g.contrib).reduce((s, k) => s + g.contrib[k], 0);
   check(total > 0, 'spin 写入本局贡献累计');
 }
+// 填充格数随交租增长，上限 20
+{
+  const g = E.createGame(11);
+  const countAt = idx => { g.rentIndex = idx; return E.rollGrid(g).filter(x => x !== null).length; };
+  check(countAt(0) === 4, '第 1 轮填 4 格');
+  check(countAt(5) === 9, '第 6 轮填 9 格');
+  check(countAt(11) === 15, '第 12 轮填 15 格');
+  check(countAt(30) === 20, '填充数封顶 20 格');
+  g.rentIndex = 11;
+  check(E.rollGrid(g).length === 20, '网格始终 20 格，满格时无空位可填');
+}
 {
   const grid = new Array(20).fill(4);
   check(E.cellGain(4, grid, 10) === 1, '无克制邻居 = 基础 1');

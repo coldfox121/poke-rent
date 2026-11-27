@@ -29,6 +29,9 @@ check(await page.$$eval('#pool .pool-chip', els => els.length) === 6, '初始卡
 await page.click('#btn-spin');
 check(await page.$eval('#btn-skip', el => el.style.display !== 'none'), '演出期间显示跳过按钮');
 check(await page.$$eval('#reel .cell.rolling', els => els.length) === 20, '20 格进入翻滚动画');
+check(await page.$$eval('#reel .cell.rolling .roll-strip img', els => els.length) >= 20, '滚轮条内含滚动精灵图');
+const rollTransform = await page.$eval('#reel .cell', el => getComputedStyle(el).transform);
+check(rollTransform === 'none' || rollTransform === 'matrix(1, 0, 0, 1, 0, 0)', '翻滚时格子本身不变形');
 await page.click('#btn-skip');
 await page.waitForSelector('.modal', { visible: true });
 check(await page.$eval('#btn-skip', el => el.style.display) === 'none', '跳过后按钮隐藏');
@@ -46,14 +49,18 @@ check(await page.$eval('#rank-box', el => !el.open), '排名面板默认折叠')
 const rankTotal = await page.$eval('#rank-total', el => +el.textContent);
 check(rankTotal > 0, `贡献总金币 ${rankTotal} > 0`);
 
-// 选第一个
+// 选第一个：有空位时新宝可梦应立即上屏
 const poolBefore = await page.$$eval('#pool .pool-chip', els => els.length);
+const chosenName = await page.$eval('.choice .nm', el => el.textContent);
 await page.click('.choice');
 await new Promise(r => setTimeout(r, 150));
 check(await page.$eval('#modal-layer', el => el.style.display) === 'none', '选择后弹窗关闭');
 check(await page.$eval('#hud-spins', el => el.textContent) === '4', '剩余转数递减到 4');
 const poolAfter = await page.$$eval('#pool .pool-chip', els => els.length);
 check(poolAfter >= poolBefore, '卡池不减少（选新符号会增加）');
+const gridNames = await page.$$eval('#reel .cell:not(.empty) .nm', els => els.map(e => e.textContent));
+check(gridNames.includes(chosenName), `选中的 ${chosenName} 立即填入空格上屏`);
+check(gridNames.length === 5, '原 4 格 + 新填 1 格 = 5 格');
 
 // 第二次转动：完整演出，收集逐格标注
 await page.click('#btn-spin');
@@ -69,6 +76,8 @@ check(seenGain.size > 0, `逐格金币标注出现 ${seenGain.size} 种`);
 check([...seenGain].every(x => /^\+\d+/.test(x)), '标注格式为 +数字');
 const beatLabels = [...seenGain].filter(x => x.includes('克'));
 check(beatLabels.every(x => /克.+ ×\d+/.test(x)), '克制标注格式为「克X ×N」');
+const bounced = await page.$$eval('#reel .cell img.bounce', els => els.length);
+check(bounced >= 0, `精灵跳动 class 已应用（本转末帧 ${bounced} 个）`);
 await page.click('.choice');
 await new Promise(r => setTimeout(r, 100));
 

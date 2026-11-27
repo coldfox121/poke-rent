@@ -78,7 +78,7 @@
     baseOfferCount: 3,
     rentCount: RENT.length,
     saveVersion: 2,
-    cacheVersion: 2
+    cacheVersion: 3
   };
 
   // 演出时序（毫秒）：集中放置，后续接调速 UI 时只需覆盖这里

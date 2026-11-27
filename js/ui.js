@@ -255,7 +255,14 @@
     showModal(html);
     Array.prototype.forEach.call(document.querySelectorAll('.choice'), function (el) {
       el.onclick = function () {
-        E.choose(game, parseInt(el.dataset.id, 10));
+        var id = parseInt(el.dataset.id, 10);
+        E.choose(game, id);
+        // 有空格就填一个进去（随机空位），让新符号立即可见；无空格保持原样，不做保底
+        var empty = [];
+        for (var i = 0; i < game.lastGrid.length; i++) {
+          if (game.lastGrid[i] === null || game.lastGrid[i] === undefined) empty.push(i);
+        }
+        if (empty.length > 0) game.lastGrid[empty[Math.floor(Math.random() * empty.length)]] = id;
         hideModal(); save(); render(); afterChoose();
       };
     });
@@ -335,6 +342,9 @@
     Array.prototype.forEach.call(document.querySelectorAll('.float-gain,.coin-fly'), function (el) {
       if (el.parentNode) el.parentNode.removeChild(el);
     });
+    Array.prototype.forEach.call(document.querySelectorAll('#reel .cell img'), function (el) {
+      el.classList.remove('bounce');
+    });
     Array.prototype.forEach.call($('reel').children, function (el) {
       el.classList.remove('rolling', 'settling');
       el.style.animationDelay = '';
@@ -395,17 +405,34 @@
     showOffer();
   }
 
+  // 滚轮条：格子内 3 张图循环滚动，格子边框与页面完全不动
+  function startRoll(cell, speciesList, colDelay) {
+    cell.innerHTML = '';
+    cell.classList.add('rolling');
+    var strip = document.createElement('div');
+    strip.className = 'roll-strip';
+    strip.style.animationDelay = '-' + (colDelay % 420) + 'ms';
+    speciesList.forEach(function (id) {
+      var img = document.createElement('img');
+      img.src = sprite(id); img.alt = '';
+      strip.appendChild(img);
+    });
+    cell.appendChild(strip);
+  }
+
   function playSpin(token, res) {
     var cells = $('reel').children;
-    // 阶段 A：翻滚，按列错开
+    // 阶段 A：滚轮翻滚，按列错开；候选图取本转实际出现的物种，不足补卡池
+    var rollIds = res.info.map(function (x) { return x.id; }).filter(function (id) { return id && POKEMON[id]; });
+    if (rollIds.length === 0) rollIds = game.pool.slice(0, 3);
     Array.prototype.forEach.call(cells, function (cell, i) {
-      cell.classList.add('rolling');
-      cell.style.animationDelay = (Math.floor(i / D.CONFIG.cols) * ANIM.rollStagger) + 'ms';
+      var picks = [];
+      for (var k = 0; k < 3; k++) picks.push(rollIds[(i + k * 3) % rollIds.length]);
+      startRoll(cell, picks, Math.floor(i / D.CONFIG.cols) * ANIM.rollStagger);
     });
     later(token, function () {
       Array.prototype.forEach.call(cells, function (cell) {
         cell.classList.remove('rolling');
-        cell.style.animationDelay = '';
       });
       paintCells(res.grid);
       // 阶段 B：行优先逐格结算，金币数字跟着涨
@@ -425,6 +452,13 @@
         var i = idx++, info = res.info[i], cell = cells[i], float = null;
         if (info.gain > 0 && cell) {
           cell.classList.add('settling');
+          // 贡献金币的宝可梦本体跳一下
+          var spriteImg = cell.querySelector('img');
+          if (spriteImg) {
+            spriteImg.classList.remove('bounce');
+            void spriteImg.offsetWidth;
+            spriteImg.classList.add('bounce');
+          }
           float = document.createElement('div');
           float.className = 'float-gain';
           float.innerHTML = '+' + info.gain + (info.count > 0
