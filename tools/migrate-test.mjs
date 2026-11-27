@@ -73,7 +73,7 @@ check(m7.rentIndex === 9 && m7.phase === 'win', '旧版超长进度保留数值�
 // 测试4：损坏数据回退
 const broken = { seed: 1, pool: [], tokens: { pokeBall: undefined } };
 const m3 = migrate(broken);
-check(m3.pool.length === 6, '空卡池回退到起始 6 只');
+check(m3.pool.length === 3, '空卡池回退到起始御三家 3 只');
 check(m3.tokens.pokeBall === 0, 'undefined 代币补 0');
 
 console.log(failures === 0 ? '\n全部通过' : `\n${failures} 项失败`);

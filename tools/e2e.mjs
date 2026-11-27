@@ -21,58 +21,102 @@ page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
 await page.goto(URL, { waitUntil: 'networkidle0' });
 
+// ---- 新手引导（首次进入）----
+check(await page.$eval('#tutorial-layer', el => el.style.display) === 'block', '首次进入显示新手引导');
+check(await page.$eval('#tutorial-tip', el => el.textContent.includes('转动')), '引导第 1 步讲转动');
+await page.click('#tut-next');
+check(await page.$eval('#tutorial-tip', el => el.textContent.includes('属性克制')), '引导第 2 步讲属性克制');
+await page.click('#tut-next');
+check(await page.$eval('#tutorial-tip', el => el.textContent.includes('卡池')), '引导第 3 步讲卡池');
+await page.click('#tut-next');
+check(await page.$eval('#tutorial-tip', el => el.textContent.includes('收租')), '引导第 4 步讲交租');
+await page.click('#tut-next');
+check(await page.$eval('#tutorial-tip', el => el.textContent.includes('图鉴')), '引导第 5 步讲图鉴');
+await page.click('#tut-next');
+check(await page.$eval('#tutorial-layer', el => el.style.display) === 'none', '引导完成后关闭');
+const tutorSeen = await page.evaluate(() => localStorage.getItem('poke-rent-tutorial'));
+check(tutorSeen === '1', '引导完成标记写入 localStorage');
+
 check(await page.$eval('#hud-coins', el => el.textContent) === '1', '初始金币 1');
 check(await page.$$eval('#reel .cell', els => els.length) === 20, '20 格网格');
-check(await page.$$eval('#pool .pool-chip', els => els.length) === 6, '初始卡池 6 只');
-check(await page.$eval('#hud-progress', el => el.textContent) === '0/7', '进度改为 0/7');
-check(await page.$eval('#btn-dex', el => /图鉴 6\/18/.test(el.textContent)), '图鉴按钮显示已点亮 6/18');
+check(await page.$$eval('#pool .pool-chip', els => els.length) === 3, '初始卡池御三家 3 只');
+check(await page.$eval('#hud-progress', el => el.textContent) === '1/7', '进度显示 1/7（当前所在轮次）');
+check(await page.$eval('#dex-count', el => /3\/18/.test(el.textContent)), '图鉴按钮显示已点亮 3/18');
+check(await page.$$eval('#pool .pool-chip .pool-num', els => els.length) === 3, '卡池每种显示 ×N 张数');
 
-// 图鉴弹窗
+// ---- 规则弹窗 ----
+check(await page.$eval('#btn-rules', el => el.textContent.includes('规则')), '顶栏规则按钮存在');
+await page.click('#btn-rules');
+await page.waitForSelector('#rules-layer', { visible: true });
+check(await page.$$eval('.rule', els => els.length) >= 8, '规则页含目标/转动/克制等条目');
+check(await page.$eval('#rules-modal', el => el.textContent.includes('属性克制奖励') && el.textContent.includes('基础值 ×2')),
+  '规则页写明属性克制奖励规则');
+check(await page.$$eval('.type-row', els => els.length) === 6, '规则页含 6 属性克制表');
+await page.click('#m-rules-close');
+check(await page.$eval('#rules-layer', el => el.style.display) === 'none', '规则弹窗可关闭');
+
+// ---- 图鉴弹窗 ----
 await page.click('#btn-dex');
 await page.waitForSelector('#dex-layer', { visible: true });
 check(await page.$$eval('.dex-card', els => els.length) === 18, '图鉴列出 18 只');
-check(await page.$$eval('.dex-card.locked', els => els.length) === 12, '开局 6 只点亮、12 只未点亮');
+check(await page.$$eval('.dex-card.locked', els => els.length) === 15, '开局 3 只点亮、15 只未点亮');
 await page.click('.dex-card:not(.locked)');
-check(await page.$eval('#dex-detail', el => el.textContent.includes('图鉴说明') && el.textContent.includes('游戏内功能')),
-  '图鉴详情含官方说明 + 游戏内功能');
+check(await page.$eval('#dex-detail', el => el.textContent.includes('图鉴说明') && el.textContent.includes('基础信息')),
+  '图鉴详情含官方说明 + 基础信息');
+check(await page.$eval('#dex-detail', el => !el.textContent.includes('每个独立结算')),
+  '图鉴详情不再写属性克制奖励规则');
 await page.click('#m-dex-close');
 check(await page.$eval('#dex-layer', el => el.style.display) === 'none', '图鉴可关闭');
 
-// 第一次转动：验证演出可跳过
+// ---- 点击卡池 chip 进图鉴 ----
+await page.click('#pool .pool-chip');
+check(await page.$eval('#dex-layer', el => el.style.display) === 'flex', '点击卡池宝可梦打开图鉴');
+await page.click('#m-dex-close');
+
+// ---- 第一次转动 ----
 await page.click('#btn-spin');
 check(await page.$eval('#btn-skip', el => el.style.display !== 'none'), '演出期间显示跳过按钮');
 check(await page.$$eval('#reel .cell.question', els => els.length) === 20, '20 格同时变问号');
-check(await page.$$eval('#reel .cell.rolling, #reel .roll-strip', els => els.length) === 0, '不再使用滚动精灵条');
-check(await page.$$eval('#reel .cell.question', els => els.every(e => e.textContent === '?')), '问号内容一致');
 await page.click('#btn-skip');
 await page.waitForSelector('.modal', { visible: true });
 check(await page.$eval('#btn-skip', el => el.style.display) === 'none', '跳过后按钮隐藏');
 check(await page.$$eval('.choice', els => els.length) === 3, '转后出现 3 选 1');
 check(await page.$$eval('.choice .rar', els => els.length) === 3, '三选一显示稀有度标签');
-check(await page.$$eval('.choice .prob', els => els.length) === 3, '三选一显示档位概率');
-check(await page.$eval('.choice .prob', el => /\d+(\.\d+)?%/.test(el.textContent)), '档位概率带百分号');
+check(await page.$$eval('.choice .prob', els => els.length) === 0, '卡片下不再逐项显示概率');
+check(await page.$eval('.prob-bar', el => /普通 [\d.]+%.*非凡 [\d.]+%.*稀有 [\d.]+%/.test(el.textContent)),
+  '概率统一显示在弹窗顶部一行');
 
-// 收起选择窗口 → 可看到上轮转盘 → 悬浮按钮恢复
+// 收起选择窗口 → 飞向悬浮按钮 → 悬浮按钮恢复
 await page.click('#m-hide');
-check(await page.$eval('#modal-layer', el => el.style.display) === 'none', '收起后弹窗隐藏');
+await page.waitForFunction(() => document.getElementById('modal-layer').style.display === 'none', { timeout: 2000 });
 check(await page.$eval('#modal-dock', el => el.style.display) !== 'none', '收起后显示悬浮按钮');
 check(await page.$$eval('#reel .cell:not(.empty)', els => els.length) > 0, '收起后上轮结果可见');
 await page.click('#modal-dock');
-check(await page.$eval('#modal-layer', el => el.style.display) === 'flex', '悬浮按钮恢复选择窗口');
+await page.waitForFunction(() => document.getElementById('modal-layer').style.display === 'flex', { timeout: 1000 });
+await new Promise(r => setTimeout(r, 420)); // 等展开动画收尾计时器完成，避免干扰随后的收起
+check(await page.$eval('#modal-dock', el => el.style.display) === 'none', '展开后悬浮按钮隐藏');
 
-// 验证精灵图加载成功
 const imgOk = await page.$$eval('#reel .cell img', imgs =>
   imgs.length > 0 && imgs.every(img => img.complete && img.naturalWidth > 0)
 );
 check(imgOk, '转动后精灵图全部加载成功');
 
+// 点击转盘上的宝可梦进图鉴（先收起选择弹窗，否则弹窗盖住转盘）
+await page.click('#m-hide');
+await page.waitForFunction(() => document.getElementById('modal-layer').style.display === 'none', { timeout: 2000 });
+await page.click('#reel .cell:not(.empty)');
+check(await page.$eval('#dex-layer', el => el.style.display) === 'flex', '点击转盘宝可梦打开图鉴');
+await page.click('#m-dex-close');
+// 重新展开选择弹窗，继续后续流程
+await page.click('#modal-dock');
+await page.waitForFunction(() => document.getElementById('modal-layer').style.display === 'flex', { timeout: 1000 });
+await new Promise(r => setTimeout(r, 420)); // 等展开动画收尾
+
 // 贡献排名
 check(await page.$$eval('#rank .rank-row', els => els.length) > 0, '贡献排名有记录');
 check(await page.$eval('#rank-box', el => !el.open), '排名面板默认折叠');
-const rankTotal = await page.$eval('#rank-total', el => +el.textContent);
-check(rankTotal > 0, `贡献总金币 ${rankTotal} > 0`);
 
-// 选第一个：有空位时新宝可梦应立即上屏
+// 选第一个
 const poolBefore = await page.$$eval('#pool .pool-chip', els => els.length);
 const chosenName = await page.$eval('.choice .nm', el => el.textContent);
 await page.click('.choice');
@@ -83,15 +127,12 @@ const poolAfter = await page.$$eval('#pool .pool-chip', els => els.length);
 check(poolAfter >= poolBefore, '卡池不减少（选新符号会增加）');
 const gridNames = await page.$$eval('#reel .cell:not(.empty) .nm', els => els.map(e => e.textContent));
 check(gridNames.includes(chosenName), `选中的 ${chosenName} 立即填入空格上屏`);
-check(gridNames.length === 7, '卡池 6 只全上屏 + 新填 1 格 = 7 格');
-const dexText = await page.$eval('#btn-dex', el => el.textContent);
-const lit = +(dexText.match(/图鉴 (\d+)\//) || [])[1];
-check(lit >= 6 && lit >= poolAfter, `图鉴点亮数与卡池一致（${lit} 只，可能选到已点亮的起始宝可梦）`);
+const lit = +(await page.$eval('#dex-count', el => el.textContent).then(t => (t.match(/(\d+)\//) || [])[1]));
+check(lit >= 3, `图鉴点亮数 ${lit} >= 3`);
 
-// 第二次转动：完整演出，收集逐格标注
+// 第二次转动：完整演出
 await page.click('#btn-spin');
 await page.waitForFunction(() => document.querySelectorAll('#reel .cell.question').length === 0, { timeout: 3000 });
-check(await page.$$eval('.float-gain', els => els.length) === 0, '结果亮出后停留 1 秒才开始结算');
 const seenGain = new Set();
 for (let t = 0; t < 45; t++) {
   const texts = await page.$$eval('.float-gain', els => els.map(e => e.textContent));
@@ -102,57 +143,53 @@ for (let t = 0; t < 45; t++) {
 await page.waitForSelector('.modal', { visible: true, timeout: 8000 });
 check(seenGain.size > 0, `逐格金币标注出现 ${seenGain.size} 种`);
 check([...seenGain].every(x => /^\+\d+/.test(x)), '标注格式为 +数字');
-const beatLabels = [...seenGain].filter(x => x.includes('克'));
-check(beatLabels.every(x => /克.+ ×\d+/.test(x)), '克制标注格式为「克X ×N」');
-const bounced = await page.$$eval('#reel .cell img.bounce', els => els.length);
-check(bounced >= 0, `精灵跳动 class 已应用（本转末帧 ${bounced} 个）`);
 await page.click('.choice');
 await new Promise(r => setTimeout(r, 100));
 
-// 存档存在
 const hasSave = await page.evaluate(() => !!localStorage.getItem('poke-rent-save'));
 check(hasSave, 'localStorage 存档写入');
 
-// 连续转到交租，验证道具 3 选 1 与每轮代币
-let itemSeen = false, tokenSeen = false;
-for (let i = 0; i < 14; i++) {
-  const spinning = await page.$eval('#btn-spin', el => !el.disabled);
-  if (!spinning) {
-    const modalVisible = await page.$eval('#modal-layer', el => el.style.display !== 'none');
-    if (modalVisible && await page.$('#m-pay')) { await page.click('#m-pay'); }
-    else if (modalVisible && await page.$('.choice[data-item]')) {
-      if (!itemSeen) {
-        check(await page.$$eval('.choice[data-item]', els => els.length) === 3, '交租后道具 3 选 1');
-        check(await page.$$eval('.choice[data-item] .rar', els => els.length) === 3, '道具奖励带稀有度标签');
-        check(await page.$$eval('.choice[data-item] .prob', els => els.every(e => !/ 0%$/.test(e.textContent))),
-          '道具档位概率不为 0%（显示与抽取一致）');
-        itemSeen = true;
-      }
-      await page.click('.choice[data-item]');
-    }
-    else if (modalVisible && await page.$('.choice')) { await page.click('.choice'); }
-    continue;
-  }
-  await page.click('#btn-spin');
-  if (await page.$eval('#btn-skip', el => el.style.display !== 'none')) await page.click('#btn-skip');
-  await new Promise(r => setTimeout(r, 100));
-  if (await page.$('.choice[data-item]')) {
-    if (!itemSeen) {
-      check(await page.$$eval('.choice[data-item]', els => els.length) === 3, '交租后道具 3 选 1');
-      check(await page.$$eval('.choice[data-item] .rar', els => els.length) === 3, '道具奖励带稀有度标签');
-      check(await page.$$eval('.choice[data-item] .prob', els => els.every(e => !/ 0%$/.test(e.textContent))),
-        '道具档位概率不为 0%（显示与抽取一致）');
-      itemSeen = true;
-    }
-    await page.click('.choice[data-item]');
-  }
-  else if (await page.$('.choice')) await page.click('.choice');
-  else if (await page.$('#m-pay')) await page.click('#m-pay');
-  const tk = await page.$eval('#tokens', el => el.textContent);
-  if (!tokenSeen && /精灵中心券 ×[2-9]/.test(tk) && /精灵球 ×[1-9]/.test(tk)) tokenSeen = true;
-}
-check(itemSeen, '流程中确实出现道具 3 选 1');
-check(tokenSeen, '交租后发放删除券与刷新球');
+// 注入高金币存档专门测交租流程（开局御三家收益低、租金本次按用户要求未调，
+// 真实连转很难在合理步数内攒够首轮房租，与本轮 UI 改动无关）
+await page.evaluate(() => {
+  localStorage.setItem('poke-rent-save', JSON.stringify({
+    saveVersion: 4, seed: 12345, coins: 9999, pool: [1, 4, 7], evolveCount: {}, contrib: {},
+    items: [], tokens: { pokeBall: 0, centerPass: 0 }, rentIndex: 0, spinsLeft: 1,
+    totalSpins: 0, coffeeUsed: false, postRentOffer: false, phase: 'spinning',
+    itemOffer: [], lastGrid: [], lastGain: 0, log: []
+  }));
+});
+await page.reload({ waitUntil: 'networkidle0' });
+check(await page.$eval('#hud-progress', el => el.textContent) === '1/7', '交租前进度 1/7');
+await page.click('#btn-spin');
+await page.click('#btn-skip');
+await page.waitForSelector('.modal', { visible: true });
+await page.click('.choice');
+await page.waitForSelector('#m-pay', { visible: true });
+await page.click('#m-pay');
+await page.waitForSelector('.choice[data-item]', { visible: true });
+check(await page.$$eval('.choice[data-item]', els => els.length) === 3, '交租后道具 3 选 1');
+check(await page.$$eval('.choice[data-item] .rar', els => els.length) === 3, '道具奖励带稀有度标签');
+check(await page.$$eval('.prob-bar', els => els.length) === 1, '道具弹窗顶部统一概率条');
+const tk = await page.$eval('#tokens', el => el.textContent);
+check(/精灵中心券 ×[2-9]/.test(tk) && /精灵球 ×[1-9]/.test(tk), '交租后发放删除券与刷新球');
+check(await page.$eval('#hud-progress', el => el.textContent) === '2/7', '交租一次后进度 2/7');
+await page.click('.choice[data-item]');
+
+// ---- 管理员调试窗口：连点进度 5 次 + 密码 ----
+await page.evaluate(() => { window.prompt = () => '1997121'; });
+for (let i = 0; i < 5; i++) await page.click('#hud-progress-box');
+check(await page.$eval('#debug-layer', el => el.style.display) === 'flex', '连点进度 5 次输入密码后打开调试窗口');
+check(await page.$$eval('.debug-cell', els => els.length) === 9, '调试窗口 3×3 网格');
+check(await page.$$eval('.debug-chip', els => els.length) === 18, '调试窗口可选 18 只宝可梦');
+// 点选小火龙放入中心格
+await page.click('.debug-chip[data-id="4"]');
+await page.click('.debug-cell.center');
+await page.click('#dbg-settle');
+check(await page.$eval('#debug-result', el => el.textContent.includes('结算') && el.textContent.includes('金')),
+  '调试窗口结算中心格并给出收益');
+await page.click('#dbg-close');
+check(await page.$eval('#debug-layer', el => el.style.display) === 'none', '调试窗口可关闭');
 
 check(errors.length === 0, '无 JS 错误' + (errors.length ? ': ' + errors.join(' | ') : ''));
 

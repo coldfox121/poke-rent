@@ -35,10 +35,11 @@ console.log('== 规则单测 ==');
 // 卡池每种符号每转各上屏一次（原作逻辑），卡池超过 20 时随机抽 20
 {
   const g = E.createGame(11);
-  check(g.pool.length === 6, '起始卡池 6 只');
+  check(g.pool.length === 3, '起始卡池御三家 3 只');
+  check([1, 4, 7].every(id => g.pool.includes(id)), '起始为妙蛙种子/小火龙/杰尼龟');
   const filled = E.rollGrid(g).filter(x => x !== null);
-  check(filled.length === 6, '卡池 6 只 → 上屏 6 只');
-  check(new Set(filled).size === 6, '上屏的 6 只各出现一次（无重复）');
+  check(filled.length === 3, '卡池 3 只 → 上屏 3 只');
+  check(new Set(filled).size === 3, '上屏的 3 只各出现一次（无重复）');
   g.pool = [1, 2, 43, 4, 5, 37, 7, 8, 54, 25, 26, 81, 50, 51, 95, 86, 87, 361, 1, 4]; // 18 种 + 2 重复
   const full = E.rollGrid(g).filter(x => x !== null);
   check(full.length === 20, '卡池 20 只 → 上屏 20 格满格');
@@ -57,8 +58,20 @@ check(E.neighbors(6).length === 8, '内部 8 邻居');
 check(E.neighbors(1).length === 5, '边中 5 邻居');
 {
   const g = E.createGame(1);
-  for (let i = 0; i < 4; i++) E.applyEvolution(g, new Array(20).fill(4));
+  let ev = null;
+  for (let i = 0; i < 4; i++) ev = E.applyEvolution(g, new Array(20).fill(4));
   check(g.pool.includes(5) && !g.pool.includes(4), '累计 4 次上屏触发进化并替换卡池');
+  check(Array.isArray(ev) && ev.length === 1 && ev[0].from === 4 && ev[0].to === 5,
+    'applyEvolution 返回进化信息供 UI 特效使用');
+  check(Array.isArray(ev[0].positions) && ev[0].positions.length === 20, '进化信息含全部位置');
+}
+{
+  const g = E.createGame(12);
+  const grid = new Array(20).fill(null);
+  grid[0] = 4;
+  for (let i = 0; i < 3; i++) E.applyEvolution(g, grid);
+  const ev = E.applyEvolution(g, grid);
+  check(grid[0] === 5 && ev[0].positions.length === 1, '进化后本转 grid 形态同步为进化形态');
 }
 
 // ---- 稀有度 ----

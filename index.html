@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>宝可梦房东 · poke-rent</title>
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <div id="app">
@@ -14,8 +14,9 @@
       <div class="hud-item"><span class="hud-label">金币</span><span class="hud-value" id="hud-coins">1</span></div>
       <div class="hud-item"><span class="hud-label">下次房租</span><span class="hud-value" id="hud-rent">80</span></div>
       <div class="hud-item"><span class="hud-label">剩余转动</span><span class="hud-value" id="hud-spins">5</span></div>
-      <div class="hud-item"><span class="hud-label">进度</span><span class="hud-value" id="hud-progress">0/7</span></div>
-      <button class="btn btn-ghost btn-dex" id="btn-dex">图鉴 0/18</button>
+      <div class="hud-item hud-click" id="hud-progress-box" title="进度"><span class="hud-label">进度</span><span class="hud-value" id="hud-progress">1/7</span></div>
+      <button class="btn btn-ghost btn-dex" id="btn-dex"><img class="btn-ico" src="assets/items/poke-ball.png?v=6" alt="">图鉴 <span id="dex-count">0/18</span></button>
+      <button class="btn btn-ghost btn-rules" id="btn-rules"><span class="btn-ico btn-ico-rule">📜</span>规则</button>
     </div>
   </header>
 
@@ -33,7 +34,7 @@
 
     <aside class="side">
       <section class="panel">
-        <h2>我的卡池 <span class="count" id="pool-count">6</span></h2>
+        <h2>我的卡池 <span class="count" id="pool-count">3</span></h2>
         <div class="pool" id="pool"></div>
       </section>
       <section class="panel">
@@ -65,10 +66,25 @@
   <div class="modal-layer dex-layer" id="dex-layer" style="display:none">
     <div class="modal dex-modal" id="dex-modal"></div>
   </div>
+  <div class="modal-layer rules-layer" id="rules-layer" style="display:none">
+    <div class="modal rules-modal" id="rules-modal"></div>
+  </div>
+
+  <!-- 管理员调试窗口：3×3 中心格结算测试 -->
+  <div class="modal-layer debug-layer" id="debug-layer" style="display:none">
+    <div class="modal debug-modal" id="debug-modal"></div>
+  </div>
+
+  <!-- 首次进入新手引导 -->
+  <div class="tutorial-layer" id="tutorial-layer" style="display:none">
+    <div class="tutorial-mask" id="tutorial-mask"></div>
+    <div class="tutorial-hole" id="tutorial-hole"></div>
+    <div class="tutorial-tip" id="tutorial-tip"></div>
+  </div>
 </div>
-<script src="js/data.js?v=5"></script>
-<script src="js/dex-data.js?v=5"></script>
-<script src="js/engine.js?v=5"></script>
-<script src="js/ui.js?v=5"></script>
+<script src="js/data.js?v=6"></script>
+<script src="js/dex-data.js?v=6"></script>
+<script src="js/engine.js?v=6"></script>
+<script src="js/ui.js?v=6"></script>
 </body>
 </html>

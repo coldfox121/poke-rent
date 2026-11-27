@@ -144,6 +144,8 @@
   }
 
   // 累计上屏次数，达到阈值则进化（卡池中该物种替换为进化形态）
+  // 返回 [{from, to, positions}]，供 UI 在对应格子播放进化特效
+  // 原地替换传入 grid，使本转演出显示进化后的形态（修复旧版只替换局部变量的问题）
   function applyEvolution(g, grid) {
     var evolved = [], threshold = evolveThresholdOf(g);
     for (var i = 0; i < grid.length; i++) {
@@ -151,13 +153,14 @@
       if (id === null || !mon || !mon.evolveTo) continue;
       g.evolveCount[id] = (g.evolveCount[id] || 0) + 1;
       if (g.evolveCount[id] >= threshold) {
-        var from = id, to = mon.evolveTo;
+        var from = id, to = mon.evolveTo, positions = [];
         g.pool = g.pool.map(function (x) { return x === from ? to : x; });
-        // 同步替换本转 grid 与 lastGrid 中的该物种
-        grid = grid.map(function (x) { return x === from ? to : x; });
+        for (var j = 0; j < grid.length; j++) {
+          if (grid[j] === from) { grid[j] = to; positions.push(j); }
+        }
         if (g.lastGrid) g.lastGrid = g.lastGrid.map(function (x) { return x === from ? to : x; });
         g.log.push('进化：' + POKEMON[from].name + ' → ' + POKEMON[to].name);
-        evolved.push(from);
+        evolved.push({ from: from, to: to, positions: positions });
       }
     }
     return evolved;
@@ -270,13 +273,14 @@
     Object.keys(result.bySpecies).forEach(function (k) {
       g.contrib[k] = (g.contrib[k] || 0) + result.bySpecies[k];
     });
-    applyEvolution(g, grid);
+    var evolved = applyEvolution(g, grid);
     g.log.push('第 ' + g.totalSpins + ' 转：+' + result.total + ' 金');
     g.offer = rollOffer(g);
     g.phase = 'choosing';
     return {
       ok: true, grid: grid, gain: result.total, detail: result.detail,
-      info: result.info, bySpecies: result.bySpecies, startCoins: startCoins, offer: g.offer
+      info: result.info, bySpecies: result.bySpecies, startCoins: startCoins, offer: g.offer,
+      evolved: evolved
     };
   }
 
