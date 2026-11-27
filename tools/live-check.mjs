@@ -1,6 +1,6 @@
 /* 线上验收：对 Pages 部署后的 URL 做资源连通性与缓存版本校验 */
 const BASE = process.argv[2] || 'https://poke-rent.pages.dev';
-const V = '11';
+const V = '12';
 
 let failures = 0;
 function check(c, m) { if (!c) { failures++; console.error('FAIL ' + m); } else console.log('PASS ' + m); }
@@ -52,6 +52,7 @@ check(css.text.includes('.pool-type'), '卡池属性标签样式已部署');
 check(css.text.includes('.rank-nums'), '本局/上一转双列排名样式已部署');
 check(!css.text.includes('.float-link'), '联动目标不带文字标识已部署');
 check(css.text.includes('.debug-grid'), '调试窗口样式已部署');
+check(css.text.includes('.debug-cell.near'), '调试窗口邻域提示样式已部署');
 const ui = await get('/js/ui.js?v=' + V);
 check(ui.status === 200 && ui.text.includes('class="rar"'), '稀有度标签已部署');
 check(ui.text.includes('m-hide'), '收起弹窗逻辑已部署');

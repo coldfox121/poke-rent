@@ -1,8 +1,35 @@
 /* 端到端测试：真实浏览器点击流程 */
-import puppeteer from 'file:///C:/Users/Administrator/AppData/Local/Temp/poke-rent-test/node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const URL = 'file:///D:/TREA_project/poke-rent/index.html';
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+// 项目根目录按脚本位置推导，换设备无需改路径
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const URL = pathToFileURL(path.join(ROOT, 'index.html')).href;
+
+// Chrome / puppeteer-core 可用环境变量覆盖
+const CHROME = process.env.CHROME_PATH || (process.platform === 'win32'
+  ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+  : process.platform === 'darwin'
+    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    : '/usr/bin/google-chrome');
+
+async function loadPuppeteer() {
+  try { return (await import('puppeteer-core')).default; } catch (e) {}
+  const p = process.env.PUPPETEER_PATH;
+  if (!p) {
+    console.error('未找到 puppeteer-core：请先 `npm i -D puppeteer-core`，或设置 PUPPETEER_PATH 指向其入口文件');
+    process.exit(1);
+  }
+  return (await import(pathToFileURL(p).href)).default;
+}
+
+if (!fs.existsSync(CHROME)) {
+  console.error('未找到 Chrome：请设置 CHROME_PATH（当前尝试 ' + CHROME + '）');
+  process.exit(1);
+}
+
+const puppeteer = await loadPuppeteer();
 
 let failures = 0;
 function check(c, m) { if (!c) { failures++; console.error('FAIL ' + m); } else console.log('PASS ' + m); }
@@ -233,14 +260,21 @@ await page.click('.choice[data-id]');
 await page.evaluate(() => { window.prompt = () => '1997121'; });
 for (let i = 0; i < 5; i++) await page.click('#hud-progress-box');
 check(await page.$eval('#debug-layer', el => el.style.display) === 'flex', '连点进度 5 次输入密码后打开调试窗口');
-check(await page.$$eval('.debug-cell', els => els.length) === 9, '调试窗口 3×3 网格');
+check(await page.$$eval('.debug-cell', els => els.length) === 20, '调试窗口与实战盘面一致（5×4）');
+check(await page.$eval('.debug-cell.center', el => !!el), '调试窗口默认有结算目标格');
 check(await page.$$eval('.debug-chip', els => els.length) === 18, '调试窗口可选 18 只宝可梦');
-// 点选小火龙放入中心格
+// 点选小火龙放入结算目标格
 await page.click('.debug-chip[data-id="4"]');
 await page.click('.debug-cell.center');
 await page.click('#dbg-settle');
 check(await page.$eval('#debug-result', el => el.textContent.includes('结算') && el.textContent.includes('金')),
-  '调试窗口结算中心格并给出收益');
+  '调试窗口结算目标格并给出收益');
+// 取消选中后点击左上角，把结算目标切到角落
+await page.click('.debug-chip[data-id="4"]');
+await page.click('.debug-cell[data-i="0"]');
+check(await page.$eval('.debug-cell[data-i="0"]', el => el.classList.contains('center')), '结算目标可自由切到角落');
+await page.click('#dbg-settle');
+check(await page.$eval('#debug-result', el => el.textContent.includes('第 1 行第 1 列')), '角落目标提示所在行列');
 await page.click('#dbg-close');
 check(await page.$eval('#debug-layer', el => el.style.display) === 'none', '调试窗口可关闭');
 

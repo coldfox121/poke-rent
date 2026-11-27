@@ -32,9 +32,9 @@
   // 演出状态：token 递增使旧演出失效，避免「跳过 / 重开」后旧回调继续跑
   // timers 支持并行计时（逐格结算 + 进化特效），abortAnim 时统一清空
   var anim = { active: false, token: 0, timers: [] };
-  // 管理员调试：连点进度 5 次输入密码后开启 3×3 中心格结算测试
+  // 管理员调试：连点进度 5 次输入密码后开启 5×4 单格结算测试
   var DEBUG_PASSWORD = '1997121', debugClicks = 0, debugClickAt = 0;
-  var debugGrid = new Array(9).fill(null), debugPick = null;
+  var debugGrid = new Array(D.CONFIG.cellCount).fill(null), debugPick = null, debugCenter = 7;
 
   function $(id) { return document.getElementById(id); }
   function v(path) { return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'v=' + CACHE_V; }
@@ -609,11 +609,9 @@
   function showIntro() {
     var rent = D.RENT[game.rentIndex] || D.RENT[0];
     var html = '<span class="story-mark">火箭队收租行动</span><h2>精灵球机与七轮房租</h2>'
-      + '<div class="story-text">你欠了火箭队一大笔钱，走投无路时搬进一栋没人敢住的公寓——'
-      + '这里挤满了野生宝可梦，还留着一台改装过的精灵球机。'
-      + '火箭队把话撂下：连续交清 7 轮房租，公寓就归你；交不出来，连人带机器一起扔出去。'
-      + '好在这台机器还能用：每转一次就掉出几只宝可梦，宝可梦按属性互相克制——压得越狠，你抽成的金币越多。'
-      + '把它们排在一起，让它们互相较劲，你负责收钱。</div>'
+      + '<div class="story-text">你欠了火箭队一屁股债，只能搬进这栋没人敢住的公寓，靠一台旧精灵球机赚钱还租。'
+      + '连续交清 7 轮房租，公寓归你；交不上，连人带机器一起扔出去。'
+      + '机器吐出的宝可梦会按属性互相克制——压得越狠，你抽成越多。</div>'
       + '<div class="story-goal"><h3>本局目标 · 第 ' + (game.rentIndex + 1) + ' 轮</h3>'
       + '<p>每轮 ' + rent.spins + ' 转，本轮需凑够 <b>' + rent.rent + ' 金</b>。'
       + '撑过第 7 轮就算通关；交不上房租，火箭队当场收房。</p></div>'
@@ -693,20 +691,22 @@
     if (!tutorialRaf) tutorialRaf = requestAnimationFrame(trackTutorial);
   }
 
-  // 管理员调试窗口：连点进度 5 次 → 输入密码 → 3×3 中心格结算测试
+  // 管理员调试窗口：连点进度 5 次 → 输入密码 → 与实战一致的 5×4 盘面单格结算测试
   function showDebug() {
-    var html = '<h2>调试 · 中心格结算测试</h2><div class="lead">拖动下方宝可梦到格子，或点选后再点格子。只结算中心格：周围 8 格仅作克制来源，不结算自身收益。</div>';
+    var html = '<h2>调试 · 单格结算测试</h2>'
+      + '<div class="lead">拖动宝可梦到任意格；未选中宝可梦时，点击格子切换「结算目标」。'
+      + '目标格按真实 8 邻域规则结算，可测试角落、边缘与内部格。</div>';
     html += '<div class="debug-grid" id="debug-grid">';
-    for (var i = 0; i < 9; i++) {
-      html += '<div class="debug-cell' + (i === 4 ? ' center' : '') + '" data-i="' + i + '"></div>';
+    for (var i = 0; i < D.CONFIG.cellCount; i++) {
+      html += '<div class="debug-cell" data-i="' + i + '"></div>';
     }
-    html += '</div><div class="debug-result" id="debug-result">在中心格放入宝可梦后点击「结算」。</div>';
+    html += '</div><div class="debug-result" id="debug-result">选一个格子作为结算目标，放入宝可梦后点「结算目标格」。</div>';
     html += '<div class="debug-pool" id="debug-pool">';
     Object.keys(POKEMON).forEach(function (k) {
       var mon = POKEMON[k];
       html += '<div class="debug-chip" draggable="true" data-id="' + k + '"><img src="' + sprite(k) + '" alt="' + mon.name + '"><span>' + mon.name + '</span></div>';
     });
-    html += '</div><div class="modal-actions"><button class="btn" id="dbg-settle">结算中心格</button>'
+    html += '</div><div class="modal-actions"><button class="btn" id="dbg-settle">结算目标格</button>'
       + '<button class="btn btn-ghost" id="dbg-clear">清空</button>'
       + '<button class="btn btn-ghost" id="dbg-close">关闭</button></div>';
     $('debug-modal').innerHTML = html;
@@ -715,21 +715,28 @@
     renderDebugGrid();
   }
 
+  function debugCoord(idx) {
+    return '第 ' + (Math.floor(idx / D.CONFIG.cols) + 1) + ' 行第 ' + (idx % D.CONFIG.cols + 1) + ' 列';
+  }
+
   function renderDebugGrid() {
     var box = $('debug-grid');
     if (!box) return;
+    var near = E.neighbors(debugCenter);
     Array.prototype.forEach.call(box.children, function (cell, i) {
       cell.innerHTML = '';
-      cell.classList.remove('has-mon');
+      cell.classList.remove('has-mon', 'center', 'near');
       var id = debugGrid[i];
       if (id && POKEMON[id]) {
         var mon = POKEMON[id], ty = TYPES[mon.type];
         cell.classList.add('has-mon');
         cell.innerHTML = '<img src="' + sprite(id) + '" alt="' + mon.name + '">'
           + '<span class="nm">' + mon.name + '</span><span class="ty" style="background:' + ty.color + '">' + ty.name + '</span>';
-      } else if (i === 4) {
-        cell.textContent = '中心';
+      } else {
+        cell.textContent = (Math.floor(i / D.CONFIG.cols) + 1) + '-' + (i % D.CONFIG.cols + 1);
       }
+      if (i === debugCenter) cell.classList.add('center');
+      else if (near.indexOf(i) >= 0) cell.classList.add('near');
     });
     Array.prototype.forEach.call(document.querySelectorAll('#debug-pool .debug-chip'), function (chip) {
       chip.classList.toggle('picked', parseInt(chip.dataset.id, 10) === debugPick);
@@ -738,7 +745,11 @@
 
   function bindDebug() {
     Array.prototype.forEach.call(document.querySelectorAll('#debug-pool .debug-chip'), function (chip) {
-      chip.onclick = function () { debugPick = parseInt(chip.dataset.id, 10); renderDebugGrid(); };
+      chip.onclick = function () {
+        var id = parseInt(chip.dataset.id, 10);
+        debugPick = debugPick === id ? null : id; // 再点一次取消选择
+        renderDebugGrid();
+      };
       chip.ondragstart = function (ev) {
         ev.dataTransfer.setData('text/plain', chip.dataset.id);
         ev.dataTransfer.effectAllowed = 'copy';
@@ -752,31 +763,35 @@
         if (POKEMON[id]) { debugGrid[parseInt(cell.dataset.i, 10)] = id; renderDebugGrid(); }
       };
       cell.onclick = function () {
-        if (!debugPick) return;
-        debugGrid[parseInt(cell.dataset.i, 10)] = debugPick;
+        var i = parseInt(cell.dataset.i, 10);
+        if (debugPick) debugGrid[i] = debugPick; // 选中宝可梦时点击 = 放入
+        else debugCenter = i;                     // 未选中时点击 = 切换结算目标
         renderDebugGrid();
       };
     });
     $('dbg-settle').onclick = function () {
-      var id = debugGrid[4];
+      var id = debugGrid[debugCenter];
       var box = $('debug-result');
-      if (!id || !POKEMON[id]) { box.textContent = '请先放入中心格宝可梦。'; return; }
-      var mon = POKEMON[id], ty = TYPES[mon.type], count = 0, names = [];
-      for (var k = 0; k < 9; k++) {
-        if (k === 4) continue;
-        var other = POKEMON[debugGrid[k]];
-        if (other && ty.beats.indexOf(other.type) >= 0) { count++; names.push(other.name); }
+      if (!id || !POKEMON[id]) {
+        box.textContent = '请先给「结算目标」格放入宝可梦（' + debugCoord(debugCenter) + '）。';
+        return;
       }
-      var gain = count === 0 ? mon.base : mon.base * CONFIG_BONUS * count;
-      box.innerHTML = '<b>' + mon.name + '</b>（基础 ' + mon.base + '）· 被克制邻居 <b>' + count + '</b> 个'
-        + (count ? '（' + names.join('、') + '）' : '')
-        + ' → 结算 <b class="big">' + gain + '</b> 金'
-        + '<div class="rule-note">' + (count ? mon.base + ' + ' + mon.base + '×2×' + count + ' = ' + gain : '无克制邻居，仅基础值 ' + mon.base) + '</div>';
+      var mon = POKEMON[id], d = E.cellDetail(id, debugGrid, debugCenter);
+      var nb = E.neighbors(debugCenter).length, names = [];
+      (d.links || []).forEach(function (l) { names.push(POKEMON[debugGrid[l.target]].name); });
+      box.innerHTML = '<b>' + mon.name + '</b>（基础 ' + mon.base + '）· 目标 ' + debugCoord(debugCenter)
+        + '<div class="rule-note">邻域 ' + nb + ' 格 · 被克制邻居 <b>' + d.count + '</b> 个'
+        + (names.length ? '（' + names.join('、') + '）' : '') + '</div>'
+        + ' → 结算 <b class="big">' + d.gain + '</b> 金'
+        + '<div class="rule-note">' + (d.count ? mon.base + ' + ' + mon.base + '×2×' + d.count + ' = ' + d.gain : '无克制邻居，仅基础值 ' + mon.base) + '</div>';
     };
-    $('dbg-clear').onclick = function () { debugGrid = new Array(9).fill(null); $('debug-result').textContent = '已清空。'; renderDebugGrid(); };
+    $('dbg-clear').onclick = function () {
+      debugGrid = new Array(D.CONFIG.cellCount).fill(null);
+      $('debug-result').textContent = '已清空（结算目标保留在 ' + debugCoord(debugCenter) + '）。';
+      renderDebugGrid();
+    };
     $('dbg-close').onclick = function () { $('debug-layer').style.display = 'none'; };
   }
-  var CONFIG_BONUS = D.CONFIG.bonusMultiplier;
 
   function onProgressClick() {
     var now = Date.now();

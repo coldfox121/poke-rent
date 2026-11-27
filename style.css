@@ -59,7 +59,13 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 .speed-btn{border:0;background:transparent;color:var(--muted);font-family:inherit;font-size:12px;padding:6px 8px;border-radius:7px;cursor:pointer;transition:.12s}
 .speed-btn:hover{color:var(--ink)}
 .speed-btn.active{background:var(--accent);color:#fff;font-weight:600}
-@media(max-width:560px){.speed-ctrl{margin-left:0;width:100%}.speed-label{flex:1}}
+@media(max-width:560px){
+  .machine-controls{gap:8px}
+  .btn-spin{flex:1 1 100%}
+  .machine-controls > .btn:not(.btn-spin){flex:1}
+  .speed-ctrl{margin-left:0;width:100%}
+  .speed-btn{flex:1}
+}
 
 /* 倍速时同步缩短弹跳/飘字/金币动画，避免逐格结算比动画还快 */
 body[data-speed="2"] .cell img.bounce{animation-duration:.22s}
@@ -226,9 +232,11 @@ body[data-speed="3"] .coin-fly{animation-duration:.24s}
 /* 调试窗口 */
 .debug-layer{z-index:95}
 .debug-modal{max-width:640px}
-.debug-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:330px;margin:0 auto 14px}
-.debug-cell{aspect-ratio:1;border:1px dashed var(--line2);border-radius:10px;background:var(--panel2);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;color:var(--line2);font-size:12px;min-height:72px}
+.debug-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:520px;margin:0 auto 14px}
+.debug-cell{aspect-ratio:1;border:1px dashed var(--line2);border-radius:10px;background:var(--panel2);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;color:var(--line2);font-size:12px;min-height:64px}
+.debug-cell.near{border-style:solid;background:#fffdf5}
 .debug-cell.center{border:2px solid var(--accent);background:#fff5f0;color:var(--accent)}
+.debug-cell.center::after{content:'结算';position:absolute;right:3px;bottom:2px;font-size:9px;font-weight:600;color:var(--accent)}
 .debug-cell.has-mon{border-style:solid}
 .debug-cell img{width:60%;height:60%;object-fit:contain;image-rendering:pixelated}
 .debug-cell .nm{font-size:10px;color:var(--muted)}
