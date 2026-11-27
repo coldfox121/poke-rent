@@ -68,7 +68,7 @@ const eng = await get('/js/engine.js?v=' + V);
 check(eng.status === 200 && eng.text.includes('postRentOffer'), '交租后强制稀有度逻辑已部署');
 check(eng.text.includes('rollItemOffer'), '道具 3 选 1 逻辑已部署');
 check(eng.text.includes("kind: 'counter'"), '通用联动目标数据已部署');
-check(eng.text.includes('交租轮最后一转不弹三选一'), '交租轮先收租后选宝可梦流程已部署');
+check(eng.text.includes('交租轮：本转不再选宝可梦'), '交租轮先收租后选宝可梦流程已部署');
 // 静态资源
 const js = await get('/js/data.js?v=' + V);
 check(js.status === 200, 'data.js HTTP 200');
