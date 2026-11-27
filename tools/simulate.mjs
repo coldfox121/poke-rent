@@ -21,6 +21,8 @@ console.log('== 规则单测 ==');
   check(E.cellGain(4, grid, 1) === 6, '小火龙 3 个被克制邻居 = 6');
   const d = E.cellDetail(4, grid, 1);
   check(d.gain === 6 && d.count === 3 && d.types.join('/') === '草', 'cellDetail 返回克制来源：克草 ×3');
+  check(d.links.length === 3 && d.links.every(x => x.kind === 'counter' && Number.isInteger(x.target)),
+    '返回逐条联动目标，供 UI 多次跳动');
 }
 {
   const g = E.createGame(7);

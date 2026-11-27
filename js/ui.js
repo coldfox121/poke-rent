@@ -396,7 +396,8 @@
       var mon = POKEMON[id], ty = TYPES[mon.type], rar = RARITY[mon.rarity];
       html += '<div class="choice" data-id="' + id + '"><img src="' + sprite(id) + '" alt="' + mon.name + '"><span class="nm">' + mon.name + '</span>'
         + '<span class="rar" style="color:' + rar.color + ';border-color:' + rar.color + '">' + rar.name + '</span>'
-        + '<span class="ty">' + ty.name + ' · 基础' + mon.base + '</span></div>';
+        + '<span class="ty-line"><span class="type-pill" style="background:' + ty.color + '">' + ty.name + '</span>'
+        + '<span class="base-tag">基础 ' + mon.base + '</span></span></div>';
     });
     html += '</div><div class="modal-actions">';
     if ((game.tokens.pokeBall || 0) > 0) html += '<button class="btn" id="m-reroll">精灵球 ×' + game.tokens.pokeBall + ' 刷新</button>';
@@ -571,18 +572,19 @@
     { sel: '#hud-rent', text: '④ 每轮 5 转后火箭队来收租，交满 7 轮即通关。进度从 1/7 开始。' },
     { sel: '#btn-dex', text: '⑤ 图鉴记录官方说明与宝可梦能力，跨局保留；规则页随时可查。现在开始你的收租之旅吧！' }
   ];
-  var tutorialStep = 0, tutorialForced = false;
+  var tutorialStep = 0, tutorialForced = false, tutorialRaf = null;
 
   function tutorialDone() {
     try { localStorage.setItem(TUTOR_KEY, '1'); } catch (e) {}
     $('tutorial-layer').style.display = 'none';
+    if (tutorialRaf) { cancelAnimationFrame(tutorialRaf); tutorialRaf = null; }
   }
 
-  function renderTutorialStep() {
-    if (tutorialStep >= tutorialSteps.length) { tutorialDone(); return; }
-    var step = tutorialSteps[tutorialStep];
-    var target = document.querySelector(step.sel);
-    if (!target) { tutorialStep++; renderTutorialStep(); return; }
+  // 高亮框跟随目标元素：页面滚动、窗口缩放、游戏重绘导致布局变化时实时更新
+  function positionTutorial() {
+    if ($('tutorial-layer').style.display !== 'block' || tutorialStep >= tutorialSteps.length) return;
+    var target = document.querySelector(tutorialSteps[tutorialStep].sel);
+    if (!target) return;
     var r = target.getBoundingClientRect();
     var pad = 8;
     var hole = $('tutorial-hole');
@@ -590,17 +592,32 @@
     hole.style.top = (r.top - pad) + 'px';
     hole.style.width = (r.width + pad * 2) + 'px';
     hole.style.height = (r.height + pad * 2) + 'px';
-    var tip = $('tutorial-tip');
-    tip.innerHTML = '<div class="tutorial-txt">' + step.text + '</div><div class="tutorial-nav">'
-      + '<button class="btn btn-ghost" id="tut-skip">跳过</button>'
-      + '<button class="btn" id="tut-next">' + (tutorialStep === tutorialSteps.length - 1 ? '开始游戏' : '下一步') + '</button></div>';
     // 提示框放在高亮框下方，靠近屏幕底部时改放上方
+    var tip = $('tutorial-tip');
     var top = r.bottom + pad + 12;
     if (top + 150 > window.innerHeight) top = Math.max(12, r.top - 150);
     tip.style.top = top + 'px';
     tip.style.left = Math.max(12, Math.min(r.left, window.innerWidth - 360)) + 'px';
+  }
+
+  function trackTutorial() {
+    if ($('tutorial-layer').style.display !== 'block') { tutorialRaf = null; return; }
+    positionTutorial();
+    tutorialRaf = requestAnimationFrame(trackTutorial);
+  }
+
+  function renderTutorialStep() {
+    if (tutorialStep >= tutorialSteps.length) { tutorialDone(); return; }
+    var step = tutorialSteps[tutorialStep];
+    var target = document.querySelector(step.sel);
+    if (!target) { tutorialStep++; renderTutorialStep(); return; }
+    var tip = $('tutorial-tip');
+    tip.innerHTML = '<div class="tutorial-txt">' + step.text + '</div><div class="tutorial-nav">'
+      + '<button class="btn btn-ghost" id="tut-skip">跳过</button>'
+      + '<button class="btn" id="tut-next">' + (tutorialStep === tutorialSteps.length - 1 ? '开始游戏' : '下一步') + '</button></div>';
     $('tut-next').onclick = function () { tutorialStep++; renderTutorialStep(); };
     $('tut-skip').onclick = tutorialDone;
+    positionTutorial();
   }
 
   function startTutorial(force) {
@@ -608,6 +625,7 @@
     tutorialStep = 0;
     $('tutorial-layer').style.display = 'block';
     renderTutorialStep();
+    if (!tutorialRaf) tutorialRaf = requestAnimationFrame(trackTutorial);
   }
 
   // 管理员调试窗口：连点进度 5 次 → 输入密码 → 3×3 中心格结算测试
@@ -726,15 +744,29 @@
     save(); render();
   }
 
+  // 清除所有存档：本局进度 + 跨局图鉴 + 新手引导标记，需两次确认
+  function clearAllSaves() {
+    if (!confirm('确定清除所有存档吗？\n本局进度、图鉴点亮记录、新手引导标记都会被删除，且不可恢复。')) return;
+    var answer = prompt('二次确认：请输入「清除」两个字以永久删除。');
+    if (answer !== '清除') return;
+    abortAnim(); // 演出中清档必须先中止，否则旧回调会继续写回
+    try {
+      localStorage.removeItem(SAVE_KEY);
+      localStorage.removeItem(DEX_KEY);
+      localStorage.removeItem(TUTOR_KEY);
+    } catch (e) {}
+    location.reload();
+  }
+
   function clearAnimDom() {
-    Array.prototype.forEach.call(document.querySelectorAll('.float-gain,.coin-fly,.evo-badge'), function (el) {
+    Array.prototype.forEach.call(document.querySelectorAll('.float-gain,.float-link,.coin-fly,.evo-badge'), function (el) {
       if (el.parentNode) el.parentNode.removeChild(el);
     });
     Array.prototype.forEach.call(document.querySelectorAll('#reel .cell img'), function (el) {
       el.classList.remove('bounce');
     });
     Array.prototype.forEach.call($('reel').children, function (el) {
-      el.classList.remove('rolling', 'question', 'settling', 'evolving');
+      el.classList.remove('rolling', 'question', 'settling', 'evolving', 'linked');
       el.style.animationDelay = '';
     });
   }
@@ -755,6 +787,35 @@
       fn();
     }, ms);
     anim.timers.push(t);
+  }
+
+  function bounceSprite(img) {
+    if (!img) return;
+    img.classList.remove('bounce');
+    void img.offsetWidth; // 强制重排，让连续多次跳动每次都能重新播放
+    img.classList.add('bounce');
+  }
+
+  function addFloat(cell, html, cls) {
+    if (!cell) return null;
+    var el = document.createElement('div');
+    el.className = cls;
+    el.innerHTML = html;
+    cell.appendChild(el);
+    return el;
+  }
+
+  // 播放一条联动收益：源格与目标格一起跳，各自显示收益来源，金币按这条单独入账
+  function playLink(token, cell, targetCell, amount, label, floats) {
+    bounceSprite(cell.querySelector('img'));
+    if (targetCell) {
+      bounceSprite(targetCell.querySelector('img'));
+      targetCell.classList.add('linked');
+      floats.push(addFloat(targetCell, '被联动', 'float-link'));
+      later(token, function () { targetCell.classList.remove('linked'); }, 260);
+    }
+    floats.push(addFloat(cell, '+' + amount + '<small>' + label + '</small>', 'float-gain'));
+    flyCoin(cell);
   }
 
   function flyCoin(cell) {
@@ -844,24 +905,34 @@
             }, ANIM.tailDuration);
             return;
           }
-          var i = idx++, info = res.info[i], cell = cells[i], float = null;
+          var i = idx++, info = res.info[i], cell = cells[i], floats = [];
+          var links = info.links || [];
+          var duration = step;
           if (info.gain > 0 && cell) {
             cell.classList.add('settling');
-            // 贡献金币的宝可梦本体跳一下
-            var spriteImg = cell.querySelector('img');
-            if (spriteImg) {
-              spriteImg.classList.remove('bounce');
-              void spriteImg.offsetWidth;
-              spriteImg.classList.add('bounce');
+            if (links.length) {
+              // 每条联动单独结算、单独跳一次：克 2 个邻居 = 跳 2 次，每次 base×2
+              var per = Math.round(info.gain / links.length);
+              var sub = Math.max(110, Math.floor(step / links.length));
+              duration = sub * links.length;
+              var added = 0;
+              links.forEach(function (link, k) {
+                later(token, function () {
+                  var amount = k === links.length - 1 ? info.gain - added : per;
+                  added += amount;
+                  playLink(token, cell, cells[link.target], amount, link.label || '联动', floats);
+                  shown += amount;
+                  tickCoins(shown);
+                }, k * sub);
+              });
+            } else {
+              // 无联动：基础收益跳一次
+              bounceSprite(cell.querySelector('img'));
+              floats.push(addFloat(cell, '+' + info.gain, 'float-gain'));
+              flyCoin(cell);
+              shown += info.gain;
+              tickCoins(shown);
             }
-            float = document.createElement('div');
-            float.className = 'float-gain';
-            float.innerHTML = '+' + info.gain + (info.count > 0
-              ? '<small>克' + info.types.join('/') + ' ×' + info.count + '</small>' : '');
-            cell.appendChild(float);
-            flyCoin(cell);
-            shown += info.gain;
-            tickCoins(shown);
           }
           if (info.gain === 0) {
             settleOne(); // 空格不占演出时间
@@ -869,9 +940,9 @@
           }
           later(token, function () {
             if (cell) cell.classList.remove('settling');
-            if (float && float.parentNode) float.parentNode.removeChild(float);
+            floats.forEach(function (f) { if (f && f.parentNode) f.parentNode.removeChild(f); });
             settleOne();
-          }, step);
+          }, duration);
         }
         settleOne();
       }, ANIM.revealHold);
@@ -902,9 +973,7 @@
     $('btn-restart').onclick = function () {
       if (confirm('确定重开？当前进度会丢失。')) restart();
     };
-    window.addEventListener('resize', function () {
-      if ($('tutorial-layer').style.display === 'block') renderTutorialStep();
-    });
+    $('btn-clear-save').onclick = clearAllSaves;
   }
 
   function init() {

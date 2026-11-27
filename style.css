@@ -48,6 +48,8 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 .btn-spin:hover:not(:disabled){background:var(--accent2)}
 .btn-cost{font-size:11px;font-weight:400;opacity:.85}
 .btn-ghost{color:var(--muted)}
+.btn-danger{color:#b4432f;border-color:#e3b6ab}
+.btn-danger:hover:not(:disabled){border-color:#b4432f;background:#fff3f0}
 .gain-line{text-align:center;margin-top:10px;font-size:13px;color:var(--muted);min-height:20px}
 .gain-line .big{font-size:18px;font-weight:600;color:var(--green)}
 
@@ -81,6 +83,9 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 .choice img{width:64px;height:64px;image-rendering:pixelated;object-fit:contain}
 .choice .nm{display:block;font-weight:600;margin-top:6px}
 .choice .ty{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.choice .ty-line{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}
+.type-pill{display:inline-block;min-width:36px;padding:2px 10px;border-radius:999px;color:#fff;font-size:13px;font-weight:700;line-height:18px;letter-spacing:.5px}
+.base-tag{font-size:11px;color:var(--muted)}
 .choice .rar{display:inline-block;font-size:10px;font-weight:600;border:1px solid;border-radius:8px;padding:0 6px;margin-top:4px}
 .pool-rar{font-size:10px;font-weight:600;opacity:.85}
 .modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
@@ -92,6 +97,8 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 .cell.settling{border-color:var(--gold);box-shadow:0 0 0 2px rgba(186,117,23,.35);background:#fffbeb;z-index:2}
 .float-gain{position:absolute;left:50%;top:50%;z-index:5;background:rgba(255,255,255,.96);border:1px solid var(--gold);border-radius:8px;padding:2px 6px;color:var(--accent2);font-weight:600;font-size:13px;line-height:1.3;white-space:nowrap;pointer-events:none;animation:floatup .6s ease-out forwards}
 .float-gain small{display:block;font-size:9px;font-weight:400;color:var(--muted)}
+.cell.linked{border-color:#b4432f;box-shadow:0 0 0 2px rgba(180,67,47,.35);background:#fff4f0}
+.float-link{position:absolute;left:12%;bottom:14%;z-index:4;background:rgba(255,255,255,.96);border:1px solid #b4432f;border-radius:8px;padding:1px 6px;color:#b4432f;font-size:10px;white-space:nowrap;pointer-events:none;animation:floatup .5s ease-out forwards}
 @keyframes floatup{0%{opacity:0;transform:translate(-50%,-30%) scale(.8)}20%{opacity:1;transform:translate(-50%,-60%) scale(1)}100%{opacity:.9;transform:translate(-50%,-110%) scale(1)}}
 .coin-fly{position:fixed;z-index:60;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--gold);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2);pointer-events:none;animation:coinfly .65s ease-in forwards}
 @keyframes coinfly{0%{transform:translate(0,0) scale(1);opacity:1}70%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.45);opacity:0}}
@@ -144,8 +151,8 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 .btn-ico{width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:4px;image-rendering:pixelated}
 .btn-ico-rule{display:inline-block;font-size:14px;vertical-align:-1px;margin-right:4px}
 .btn-dex,.btn-rules{display:inline-flex;align-items:center;gap:2px}
-.hud-click{cursor:pointer;user-select:none}
-.hud-click:hover{border-color:var(--accent)}
+/* 进度格只是隐藏的管理员入口，不能给玩家任何可点击暗示 */
+.hud-click{cursor:default;user-select:none}
 
 /* 卡池：张数 + 独立移除按钮 */
 .cell.clickable,.pool-chip.clickable{cursor:pointer}
@@ -182,7 +189,7 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 /* 新手引导 */
 .tutorial-layer{position:fixed;inset:0;z-index:90;pointer-events:none}
 .tutorial-mask{position:absolute;inset:0;background:transparent}
-.tutorial-hole{position:absolute;border:2px solid var(--accent);border-radius:12px;box-shadow:0 0 0 4px rgba(216,90,48,.25),0 0 0 9999px rgba(20,20,24,.55);transition:.2s ease;pointer-events:none}
+.tutorial-hole{position:absolute;border:2px solid var(--accent);border-radius:12px;box-shadow:0 0 0 4px rgba(216,90,48,.25),0 0 0 9999px rgba(20,20,24,.55);pointer-events:none}
 .tutorial-tip{position:absolute;width:340px;max-width:calc(100vw - 24px);background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);pointer-events:auto}
 .tutorial-txt{font-size:13px;line-height:1.7;margin-bottom:10px}
 .tutorial-nav{display:flex;justify-content:flex-end;gap:8px}

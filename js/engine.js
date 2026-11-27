@@ -95,17 +95,20 @@
   function cellDetail(speciesId, grid, idx) {
     var mon = POKEMON[speciesId];
     if (!mon) return { gain: 0, count: 0, types: [] };
-    var type = TYPES[mon.type], count = 0, types = [], nb = neighbors(idx);
+    var type = TYPES[mon.type], count = 0, types = [], links = [], nb = neighbors(idx);
     for (var i = 0; i < nb.length; i++) {
       var other = POKEMON[grid[nb[i]]];
       if (other && type.beats.indexOf(other.type) >= 0) {
         count++;
+        // 通用联动记录：UI 会让源格与该目标格一起跳，并显示这条联动的收益。
+        // 后续特殊能力联动其他宝可梦时，追加 { kind:'ability', target, label } 即可复用。
+        links.push({ kind: 'counter', target: nb[i], type: other.type, label: '克' + TYPES[other.type].name });
         var nm = TYPES[other.type].name;
         if (types.indexOf(nm) < 0) types.push(nm);
       }
     }
     var gain = count === 0 ? mon.base : mon.base * CONFIG.bonusMultiplier * count;
-    return { gain: gain, count: count, types: types };
+    return { gain: gain, count: count, types: types, links: links };
   }
 
   function cellGain(speciesId, grid, idx) {
@@ -119,13 +122,13 @@
       var id = grid[idx];
       if (id === null || !POKEMON[id]) {
         detail.push(0);
-        info.push({ id: id, gain: 0, count: 0, types: [] });
+        info.push({ id: id, gain: 0, count: 0, types: [], links: [] });
         continue;
       }
       var d = cellDetail(id, grid, idx);
       total += d.gain;
       detail.push(d.gain);
-      info.push({ id: id, gain: d.gain, count: d.count, types: d.types });
+      info.push({ id: id, gain: d.gain, count: d.count, types: d.types, links: d.links });
       bySpecies[id] = (bySpecies[id] || 0) + d.gain;
     }
     var bonus = g.items.filter(function (id) { return id === 'recycle'; }).length * 2
