@@ -1,6 +1,6 @@
 /* 线上验收：对 Pages 部署后的 URL 做资源连通性与缓存版本校验 */
 const BASE = process.argv[2] || 'https://poke-rent.pages.dev';
-const V = '7';
+const V = '8';
 
 let failures = 0;
 function check(c, m) { if (!c) { failures++; console.error('FAIL ' + m); } else console.log('PASS ' + m); }
@@ -41,6 +41,7 @@ check(css.text.includes('.cell.evolving'), '进化特效样式已部署');
 check(css.text.includes('.tutorial-hole'), '新手引导高亮样式已部署');
 check(css.text.includes('.btn-danger'), '清除存档按钮样式已部署');
 check(css.text.includes('.type-pill'), '选择卡片属性彩色标签样式已部署');
+check(css.text.includes('.choice img{width:96px'), '三选一宝可梦图标放大样式已部署');
 check(css.text.includes('.hud-click{cursor:default'), '进度格无可点击视觉暗示已部署');
 check(css.text.includes('.float-link'), '联动目标跳动提示样式已部署');
 check(css.text.includes('.debug-grid'), '调试窗口样式已部署');

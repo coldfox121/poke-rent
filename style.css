@@ -80,7 +80,7 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 @media(max-width:560px){.choices{grid-template-columns:1fr}}
 .choice{background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:14px 8px;text-align:center;cursor:pointer;transition:.12s}
 .choice:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
-.choice img{width:64px;height:64px;image-rendering:pixelated;object-fit:contain}
+.choice img{width:96px;height:96px;image-rendering:pixelated;object-fit:contain;filter:drop-shadow(0 4px 6px rgba(0,0,0,.12))}
 .choice .nm{display:block;font-weight:600;margin-top:6px}
 .choice .ty{display:block;font-size:11px;color:var(--muted);margin-top:2px}
 .choice .ty-line{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px}
@@ -187,7 +187,8 @@ body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft 
 .type-beats{color:var(--muted)}
 
 /* 新手引导 */
-.tutorial-layer{position:fixed;inset:0;z-index:90;pointer-events:none}
+/* 引导期间整层拦截点击，只允许引导气泡里的按钮响应，避免玩家提前触发转动/交租 */
+.tutorial-layer{position:fixed;inset:0;z-index:90;pointer-events:auto}
 .tutorial-mask{position:absolute;inset:0;background:transparent}
 .tutorial-hole{position:absolute;border:2px solid var(--accent);border-radius:12px;box-shadow:0 0 0 4px rgba(216,90,48,.25),0 0 0 9999px rgba(20,20,24,.55);pointer-events:none}
 .tutorial-tip{position:absolute;width:340px;max-width:calc(100vw - 24px);background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);pointer-events:auto}

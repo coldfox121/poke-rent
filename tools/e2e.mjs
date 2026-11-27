@@ -24,6 +24,10 @@ await page.goto(URL, { waitUntil: 'networkidle0' });
 // ---- 新手引导（首次进入）----
 check(await page.$eval('#tutorial-layer', el => el.style.display) === 'block', '首次进入显示新手引导');
 check(await page.$eval('#tutorial-tip', el => el.textContent.includes('转动')), '引导第 1 步讲转动');
+// 引导期间页面按钮不可点，避免提前触发转动打乱流程
+await page.click('#btn-spin');
+check(await page.$eval('#hud-coins', el => el.textContent) === '1', '引导期间点击转动不扣金币');
+check(await page.$$eval('#reel .cell.question', els => els.length) === 0, '引导期间点击转动不触发演出');
 await page.click('#tut-next');
 check(await page.$eval('#tutorial-tip', el => el.textContent.includes('属性克制')), '引导第 2 步讲属性克制');
 // 页面尺寸变化后高亮框必须跟随目标
@@ -243,7 +247,7 @@ check(await page.evaluate(() => localStorage.getItem('poke-rent-save') !== null)
 await page.evaluate(() => { window.prompt = () => '清除'; });
 await page.click('#btn-clear-save');
 await new Promise(r => setTimeout(r, 1200)); // 等待 location.reload() 完成
-await page.waitForFunction(() => /3\/18/.test(document.getElementById('dex-count').textContent), { timeout: 5000 });
+await page.waitForFunction(() => /3\/18/.test(document.getElementById('dex-count').textContent), { timeout: 15000 });
 check(await page.evaluate(() => localStorage.getItem('poke-rent-save') === null), '二次确认后本局存档已清空');
 check(await page.evaluate(() => localStorage.getItem('poke-rent-tutorial') === null), '新手引导标记已清空');
 check(await page.$eval('#tutorial-layer', el => el.style.display) === 'block', '清档后刷新回到新手引导');

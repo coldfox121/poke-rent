@@ -4,7 +4,7 @@
 
 所有静态资源引用必须带 `?v=N`，且 `index.html` 与 JS 内部动态拼接的版本号必须一致：
 
-- `index.html` 中 `style.css?v=7`、`js/data.js?v=7`、`js/dex-data.js?v=7`、`js/engine.js?v=7`、`js/ui.js?v=7`、`assets/items/poke-ball.png?v=7`
+- `index.html` 中 `style.css?v=8`、`js/data.js?v=8`、`js/dex-data.js?v=8`、`js/engine.js?v=8`、`js/ui.js?v=8`、`assets/items/poke-ball.png?v=8`
 - `js/ui.js` 中 `CACHE_V = D.CONFIG.cacheVersion`，与上面保持同步
 - `js/data.js` 中 `CONFIG.cacheVersion = 7`
 - 新增静态文件（`js/dex-data.js`）也必须带同一个 `?v=N`，并加入 `tools/live-check.mjs` 校验
