@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>宝可梦房东 · poke-rent</title>
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <div id="app">
@@ -24,6 +24,7 @@
       <div class="reel" id="reel"></div>
       <div class="machine-controls">
         <button class="btn btn-spin" id="btn-spin">转动 <span class="btn-cost">-1 金</span></button>
+        <button class="btn btn-ghost" id="btn-skip" style="display:none">跳过动画</button>
         <button class="btn btn-ghost" id="btn-restart">重开</button>
       </div>
       <div class="gain-line" id="gain-line">—</div>
@@ -42,6 +43,12 @@
         <h2>消耗品</h2>
         <div class="items" id="tokens"></div>
       </section>
+      <section class="panel rank-panel">
+        <details id="rank-box">
+          <summary>贡献金币排名 <span class="count" id="rank-total">0</span></summary>
+          <div class="rank-list" id="rank"></div>
+        </details>
+      </section>
       <section class="panel log-panel">
         <h2>日志</h2>
         <div class="log" id="log"></div>
@@ -53,8 +60,8 @@
     <div class="modal" id="modal"></div>
   </div>
 </div>
-<script src="js/data.js?v=1"></script>
-<script src="js/engine.js?v=1"></script>
-<script src="js/ui.js?v=1"></script>
+<script src="js/data.js?v=2"></script>
+<script src="js/engine.js?v=2"></script>
+<script src="js/ui.js?v=2"></script>
 </body>
 </html>

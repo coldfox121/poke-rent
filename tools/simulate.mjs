@@ -19,6 +19,18 @@ console.log('== 规则单测 ==');
   const grid = new Array(20).fill(4);
   grid[0] = 1; grid[2] = 1; grid[5] = 1; // 小火龙(index1) 3 个草邻居
   check(E.cellGain(4, grid, 1) === 6, '小火龙 3 个被克制邻居 = 6');
+  const d = E.cellDetail(4, grid, 1);
+  check(d.gain === 6 && d.count === 3 && d.types.join('/') === '草', 'cellDetail 返回克制来源：克草 ×3');
+}
+{
+  const g = E.createGame(7);
+  const grid = new Array(20).fill(null);
+  grid[6] = 4;
+  const r = E.settleGrid(g, grid);
+  check(r.info[6].gain === 1 && r.bySpecies['4'] === 1, '结算返回逐格明细与按物种贡献');
+  E.spin(g);
+  const total = Object.keys(g.contrib).reduce((s, k) => s + g.contrib[k], 0);
+  check(total > 0, 'spin 写入本局贡献累计');
 }
 {
   const grid = new Array(20).fill(4);

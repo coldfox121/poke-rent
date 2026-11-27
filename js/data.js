@@ -77,8 +77,18 @@
     fillMax: 20,          // 填充上限
     baseOfferCount: 3,
     rentCount: RENT.length,
-    saveVersion: 1,
-    cacheVersion: 1
+    saveVersion: 2,
+    cacheVersion: 2
+  };
+
+  // 演出时序（毫秒）：集中放置，后续接调速 UI 时只需覆盖这里
+  var ANIM = {
+    rollDuration: 500,   // 20 格翻滚时长
+    rollStagger: 60,     // 每列错开
+    settleTotal: 3000,   // 逐格结算总时长，按有收益格数均分
+    settleMin: 150,      // 单格最短停留（满配时）
+    settleMax: 600,      // 单格最长停留（前期格子少时看得清）
+    tailDuration: 300    // 收尾展示总收益
   };
 
   global.PR = global.PR || {};
@@ -89,6 +99,7 @@
     ITEMS: ITEMS,
     TOKENS: TOKENS,
     CONFIG: CONFIG,
+    ANIM: ANIM,
     // 起始卡池：6 个一阶（每属性一个）
     STARTER_POOL: [1, 4, 7, 25, 50, 86]
   };

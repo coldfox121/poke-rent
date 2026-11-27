@@ -26,6 +26,7 @@
       pool: pool,
       evolveCount: {},            // 物种 id -> 累计上屏次数
       items: [],                  // 已拥有的永久物品 id
+      contrib: {},                // 本局贡献金币：物种 id -> 累计金币（__other 为物品等来源）
       tokens: { pokeBall: 0, centerPass: 0 },
       rentIndex: 0,               // 当前第几轮租金（0-based）
       spinsLeft: RENT[0].spins,
@@ -83,28 +84,48 @@
   }
 
   // 结算单格：每个被自己克制的邻居独立结算一次 base×2，多次相加；无克制邻居则 base
-  function cellGain(speciesId, grid, idx) {
+  // 同时返回克制来源，供 UI 演出标注「克草 ×3」
+  function cellDetail(speciesId, grid, idx) {
     var mon = POKEMON[speciesId];
-    if (!mon) return 0;
-    var type = TYPES[mon.type], count = 0, nb = neighbors(idx);
+    if (!mon) return { gain: 0, count: 0, types: [] };
+    var type = TYPES[mon.type], count = 0, types = [], nb = neighbors(idx);
     for (var i = 0; i < nb.length; i++) {
       var other = POKEMON[grid[nb[i]]];
-      if (other && type.beats.indexOf(other.type) >= 0) count++;
+      if (other && type.beats.indexOf(other.type) >= 0) {
+        count++;
+        var nm = TYPES[other.type].name;
+        if (types.indexOf(nm) < 0) types.push(nm);
+      }
     }
-    if (count === 0) return mon.base;
-    return mon.base * CONFIG.bonusMultiplier * count;
+    var gain = count === 0 ? mon.base : mon.base * CONFIG.bonusMultiplier * count;
+    return { gain: gain, count: count, types: types };
   }
 
-  // 整转结算：行优先遍历 20 格
+  function cellGain(speciesId, grid, idx) {
+    return cellDetail(speciesId, grid, idx).gain;
+  }
+
+  // 整转结算：行优先遍历 20 格，同时按物种累计贡献
   function settleGrid(g, grid) {
-    var total = 0, detail = [];
+    var total = 0, detail = [], info = [], bySpecies = {};
     for (var idx = 0; idx < grid.length; idx++) {
-      var gain = grid[idx] === null ? 0 : cellGain(grid[idx], grid, idx);
-      total += gain;
-      detail.push(gain);
+      var id = grid[idx];
+      if (id === null || !POKEMON[id]) {
+        detail.push(0);
+        info.push({ id: id, gain: 0, count: 0, types: [] });
+        continue;
+      }
+      var d = cellDetail(id, grid, idx);
+      total += d.gain;
+      detail.push(d.gain);
+      info.push({ id: id, gain: d.gain, count: d.count, types: d.types });
+      bySpecies[id] = (bySpecies[id] || 0) + d.gain;
     }
-    if (g.items.indexOf('recycle') >= 0) total += 2;
-    return { total: total, detail: detail };
+    if (g.items.indexOf('recycle') >= 0) {
+      total += 2;
+      bySpecies.__other = (bySpecies.__other || 0) + 2;
+    }
+    return { total: total, detail: detail, info: info, bySpecies: bySpecies };
   }
 
   // 累计上屏次数，达到阈值则进化（卡池中该物种替换为进化形态）
@@ -156,6 +177,7 @@
     if (g.phase !== 'spinning') return { ok: false, reason: 'phase' };
     if (g.coins < CONFIG.spinCost) return { ok: false, reason: 'coins' };
     g.coins -= CONFIG.spinCost;
+    var startCoins = g.coins;
     var grid = rollGrid(g);
     var result = settleGrid(g, grid);
     g.coins += result.total;
@@ -163,11 +185,18 @@
     g.lastGrid = grid;
     g.totalSpins++;
     g.spinsLeft--;
+    if (!g.contrib || typeof g.contrib !== 'object') g.contrib = {};
+    Object.keys(result.bySpecies).forEach(function (k) {
+      g.contrib[k] = (g.contrib[k] || 0) + result.bySpecies[k];
+    });
     applyEvolution(g, grid);
     g.log.push('第 ' + g.totalSpins + ' 转：+' + result.total + ' 金');
     g.offer = rollOffer(g);
     g.phase = 'choosing';
-    return { ok: true, grid: grid, gain: result.total, detail: result.detail, offer: g.offer };
+    return {
+      ok: true, grid: grid, gain: result.total, detail: result.detail,
+      info: result.info, bySpecies: result.bySpecies, startCoins: startCoins, offer: g.offer
+    };
   }
 
   // 三选一（或跳过）
@@ -277,6 +306,7 @@
     createGame: createGame,
     rollGrid: rollGrid,
     neighbors: neighbors,
+    cellDetail: cellDetail,
     cellGain: cellGain,
     settleGrid: settleGrid,
     applyEvolution: applyEvolution,

@@ -4,15 +4,15 @@
 
 所有静态资源引用必须带 `?v=N`，且 `index.html` 与 JS 内部动态拼接的版本号必须一致：
 
-- `index.html` 中 `style.css?v=1`、`js/data.js?v=1`、`js/engine.js?v=1`、`js/ui.js?v=1`
+- `index.html` 中 `style.css?v=2`、`js/data.js?v=2`、`js/engine.js?v=2`、`js/ui.js?v=2`
 - `js/ui.js` 中 `CACHE_V = D.CONFIG.cacheVersion`，与上面保持同步
-- `js/data.js` 中 `CONFIG.cacheVersion = 1`
+- `js/data.js` 中 `CONFIG.cacheVersion = 2`
 
 **改任何静态文件必须同步递增所有 `?v=N`**，否则浏览器缓存会导致用户看到旧版本。
 
 ## 存档版本 `SAVE_VERSION`
 
-`js/data.js` 中 `CONFIG.saveVersion`，当前为 1。
+`js/data.js` 中 `CONFIG.saveVersion`，当前为 2（v1.1.0 新增 `contrib` 按物种贡献字段）。
 
 升级规则：
 
@@ -25,7 +25,7 @@
 ## 发版流程
 
 1. `git pull --ff-only origin main` 记基线提交
-2. 改动完成后跑全部测试：`node tools/simulate.mjs`、`node tools/migrate-test.mjs`
+2. 改动完成后跑全部测试：`node tools/simulate.mjs`、`node tools/migrate-test.mjs`、`node tools/e2e.mjs`（需 puppeteer-core）
 3. 测试全绿后 commit + push
 4. 等 Cloudflare Pages 部署完成
 5. 线上打开验证
