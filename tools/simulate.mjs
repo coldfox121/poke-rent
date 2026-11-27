@@ -18,11 +18,12 @@ console.log('== 规则单测 ==');
 {
   const grid = new Array(20).fill(4);
   grid[0] = 1; grid[2] = 1; grid[5] = 1; // 小火龙(index1) 3 个草邻居
-  check(E.cellGain(4, grid, 1) === 6, '小火龙 3 个被克制邻居 = 6');
+  check(E.cellGain(4, grid, 1) === 9, '小火龙 3 个被克制邻居 = 6 + 火苗 3');
   const d = E.cellDetail(4, grid, 1);
-  check(d.gain === 6 && d.count === 3 && d.types.join('/') === '草', 'cellDetail 返回克制来源：克草 ×3');
-  check(d.links.length === 3 && d.links.every(x => x.kind === 'counter' && Number.isInteger(x.target)),
+  check(d.gain === 9 && d.count === 3 && d.types.join('/') === '草', 'cellDetail 返回克制来源：克草 ×3');
+  check(d.links.filter(x => x.kind === 'counter').length === 3,
     '返回逐条联动目标，供 UI 多次跳动');
+  check(d.links.some(x => x.kind === 'ability' && x.label === '火苗'), '能力收益也写入联动记录');
 }
 {
   const g = E.createGame(7);
@@ -54,7 +55,7 @@ console.log('== 规则单测 ==');
   check(E.cellGain(4, grid, 10) === 1, '无克制邻居 = 基础 1');
   const grid2 = new Array(20).fill(1);
   grid2[6] = 4; // index6 是内部格，8 个邻居全是草
-  check(E.cellGain(4, grid2, 6) === 16, '8 邻居满配 = 16');
+  check(E.cellGain(4, grid2, 6) === 19, '8 邻居满配 = 16 + 火苗 3');
 }
 check(E.neighbors(0).length === 3, '角落 3 邻居');
 check(E.neighbors(6).length === 8, '内部 8 邻居');
@@ -63,18 +64,37 @@ check(E.neighbors(1).length === 5, '边中 5 邻居');
   const g = E.createGame(1);
   let ev = null;
   for (let i = 0; i < 4; i++) ev = E.applyEvolution(g, new Array(20).fill(4));
-  check(g.pool.includes(5) && !g.pool.includes(4), '累计 4 次上屏触发进化并替换卡池');
+  check(g.pool.includes(4), '累计 4 次上屏后不自动进化，卡池仍为一阶');
   check(Array.isArray(ev) && ev.length === 1 && ev[0].from === 4 && ev[0].to === 5,
-    'applyEvolution 返回进化信息供 UI 特效使用');
-  check(Array.isArray(ev[0].positions) && ev[0].positions.length === 20, '进化信息含全部位置');
+    'applyEvolution 返回待确认进化列表');
+  check(Array.isArray(ev[0].positions) && ev[0].positions.length === 20, '待确认信息含全部位置');
+  check(E.canEvolve(g, 4) === true, 'canEvolve 判定为可确认进化');
+  const r = E.evolve(g, 4);
+  check(r.ok && g.pool.includes(5) && !g.pool.includes(4), '玩家确认后卡池替换为二阶形态');
+  check(E.canEvolve(g, 4) === false, '进化后不再可进化');
 }
 {
   const g = E.createGame(12);
   const grid = new Array(20).fill(null);
   grid[0] = 4;
-  for (let i = 0; i < 3; i++) E.applyEvolution(g, grid);
-  const ev = E.applyEvolution(g, grid);
-  check(grid[0] === 5 && ev[0].positions.length === 1, '进化后本转 grid 形态同步为进化形态');
+  for (let i = 0; i < 4; i++) E.applyEvolution(g, grid);
+  check(grid[0] === 4, '未确认时本转形态保持一阶');
+  E.evolve(g, 4);
+  check(g.pool.includes(5), '确认后卡池同步为进化形态');
+}
+// ---- 特殊能力 ----
+{
+  const corner = new Array(20).fill(null); corner[0] = 50;
+  check(E.cellGain(50, corner, 0) === 4, '地鼠在角落 +3');
+  const bottom = new Array(20).fill(null); bottom[15] = 43;
+  check(E.cellGain(43, bottom, 15) === 4, '走路草在底行 +3');
+  const aura = new Array(20).fill(null); aura[0] = 37; aura[1] = 4;
+  check(E.cellGain(4, aura, 1) === 2, '暖炉给相邻火属性 +1');
+  const suppress = new Array(20).fill(null); suppress[0] = 86; suppress[1] = 1;
+  check(E.cellGain(1, suppress, 1) === 0, '冰息压制被自己克制的邻居');
+  check(E.cellGain(86, suppress, 0) === 3, '冰息自身：克制 2 + 能力 1');
+  const ice3 = new Array(20).fill(null); ice3[0] = 86; ice3[1] = 87; ice3[2] = 361;
+  check(E.cellGain(361, ice3, 2) === 4, '雪隐在场上 3 只冰属性时 +3');
 }
 
 // ---- 稀有度 ----
@@ -188,7 +208,9 @@ function runGame(seed, strategy) {
   while (g.phase !== 'gameover' && g.phase !== 'win' && guard < 400) {
     guard++;
     if (g.phase === 'spinning') {
-      E.spin(g);
+      const res = E.spin(g);
+      // 模拟玩家在每转结束后立刻确认进化
+      (res.pending || []).forEach(p => { if (E.canEvolve(g, p.from)) E.evolve(g, p.from); });
     } else if (g.phase === 'choosing') {
       let pick = null;
       if (strategy === 'greedy') {

@@ -42,6 +42,31 @@
     361: { id: 361, name: '雪童子',   type: 'ice',      base: 1, rarity: 'common',   evolveTo: null }
   };
 
+  // 特殊能力：与宝可梦一一对应，声明式表达，结算在 engine.js 统一解析
+  // tag 用于后续流派权重：burst 爆发 / board 铺场 / control 控制 / econ 经济 /
+  // position 位置 / aura 光环 / environment 环境 / tradeoff 代价
+  var ABILITIES = {
+    1:   { id: 'sprout',   name: '萌芽',   tag: 'board',       text: '相邻每有 1 只宝可梦 +1 金（最多 +2）。', effects: [{ kind: 'nearbyCountFlat', value: 1, max: 2 }] },
+    2:   { id: 'lush',     name: '繁茂',   tag: 'board',       text: '相邻每有 1 只宝可梦 +1 金（最多 +4）。', effects: [{ kind: 'nearbyCountFlat', value: 1, max: 4 }] },
+    43:  { id: 'root',     name: '扎根',   tag: 'position',    text: '位于底行时 +3 金，其他位置不生效。', effects: [{ kind: 'positionFlat', bottomRow: 3 }] },
+    4:   { id: 'flame',    name: '火苗',   tag: 'burst',       text: '每克制 1 个邻居额外 +1 金（最多 +3）。', effects: [{ kind: 'counterFlat', value: 1, max: 3 }] },
+    5:   { id: 'blaze',    name: '烈焰',   tag: 'burst',       text: '每克制 1 个邻居额外 +2 金（最多 +6）。', effects: [{ kind: 'counterFlat', value: 2, max: 6 }] },
+    37:  { id: 'warmth',   name: '暖炉',   tag: 'aura',        text: '相邻的火属性宝可梦各 +1 金（最多 +2）。', effects: [{ kind: 'neighborFlat', value: 1, targetType: 'fire', max: 2 }] },
+    7:   { id: 'watergun', name: '水枪',   tag: 'board',       text: '相邻每有 1 只水属性宝可梦 +1 金（最多 +2）。', effects: [{ kind: 'nearbyTypeFlat', type: 'water', value: 1, max: 2 }] },
+    8:   { id: 'hydro',    name: '水炮',   tag: 'board',       text: '相邻每有 1 只水属性宝可梦 +2 金（最多 +4）。', effects: [{ kind: 'nearbyTypeFlat', type: 'water', value: 2, max: 4 }] },
+    54:  { id: 'daze',     name: '发呆',   tag: 'tradeoff',    text: '自身产出归零，左右相邻格各 +2 金。', effects: [{ kind: 'selfZero' }, { kind: 'neighborFlat', value: 2, scope: 'leftRight' }] },
+    25:  { id: 'static',   name: '静电',   tag: 'burst',       text: '没有被任何邻居克制时 +2 金。', effects: [{ kind: 'noCounterFlat', value: 2 }] },
+    26:  { id: 'thunder',  name: '十万伏特', tag: 'burst',     text: '被自己克制的邻居格各 +2 金。', effects: [{ kind: 'counterTargetFlat', value: 2 }] },
+    81:  { id: 'magnet',   name: '磁力',   tag: 'aura',        text: '相邻的电属性宝可梦各 +1 金，自身 +1 金。', effects: [{ kind: 'flat', value: 1 }, { kind: 'neighborFlat', value: 1, targetType: 'electric' }] },
+    50:  { id: 'dig',      name: '打洞',   tag: 'position',    text: '在角落 +3 金，在边缘 +1 金，内部不生效。', effects: [{ kind: 'positionFlat', corner: 3, edge: 1, inner: 0 }] },
+    51:  { id: 'tridig',   name: '三重洞', tag: 'position',    text: '在角落 +4 金，在边缘 +2 金，内部 +1 金。', effects: [{ kind: 'positionFlat', corner: 4, edge: 2, inner: 1 }] },
+    95:  { id: 'rockwall', name: '岩壁',   tag: 'control',     text: '邻域每有 1 只宝可梦 +1 金（最多 +4）。', effects: [{ kind: 'nearbyCountFlat', value: 1, max: 4 }] },
+    86:  { id: 'frost',    name: '冰息',   tag: 'control',     text: '被自己克制的邻居本转不产出，自身 +1 金。', effects: [{ kind: 'suppress', value: 1 }] },
+    87:  { id: 'extreme',  name: '极寒',   tag: 'control',     text: '被自己克制的邻居本转不产出，自身 +2 金。', effects: [{ kind: 'suppress', value: 2 }] },
+    361: { id: 'snowveil', name: '雪隐',   tag: 'environment', text: '场上冰属性达到 3 只时 +3 金。', effects: [{ kind: 'typeCountFlat', type: 'ice', n: 3, value: 3 }] }
+  };
+  Object.keys(ABILITIES).forEach(function (id) { if (POKEMON[id]) POKEMON[id].ability = ABILITIES[id]; });
+
   // 租金曲线：7 轮 × 固定 5 转。当前为「临时测试难度」——按用户要求大幅调低，
   // 目的是能顺利测到后段流程；后续做特殊能力时再按模拟重新扫描正式平衡。
   var RENT = [
@@ -78,7 +103,7 @@
     { title: '转动与卡池', body: '点「转动」生成 20 格结果。卡池中每种宝可梦每转各上屏一次、随机铺位；卡池超过 20 只时随机抽 20 只。转完从三选一里挑选宝可梦加入卡池，也可跳过保持卡池干净。' },
     { title: '基础产出', body: '每格若周围 8 邻域（上下左右 + 四斜角，不含首尾环绕）没有自己克制的宝可梦，就产出自身基础值。' },
     { title: '属性克制奖励', body: '每有 1 个被自己克制的邻居（按下方克制表），该格就独立再结算一次「基础值 ×2」，多次相加。例：基础 1 的宝可梦有 3 个被克邻居，产出 1 + 1×2×3 = 7 金。行优先结算（第一行左到右，逐行到第四行）。' },
-    { title: '进化', body: '同一只宝可梦累计上屏达到 4 次即进化为二阶形态，基础产出由 1 提升到 3，卡池中该符号同步替换。「幸运蛋」每件让阈值 -1，最低 2。' },
+    { title: '进化', body: '同一只宝可梦累计上屏达到 4 次后，格子右下角出现进化标识；点击标识确认后进化为二阶形态，基础产出由 1 提升到 3，卡池中该符号同步替换。不确认则保持一阶，标识持续保留。「幸运蛋」每件让阈值 -1，最低 2。' },
     { title: '稀有度', body: '三选一先抽稀有度档位再抽具体项，档位概率显示在弹窗顶部：普通 68.5% / 非凡 30% / 稀有 1.5%。第 1 次交租前只出普通，交租 1 次后解锁非凡，2 次后解锁稀有；交租后首次三选一强制非凡以上。' },
     { title: '道具与消耗品', body: '永久物品当局生效、不可关闭，同类效果可叠加；消耗品为精灵球（刷新三选一）与精灵中心券（从卡池移除 1 个符号，吃券的 × 按钮在卡池 chip 上）。每次交租后发放 2 券 + 1 球，并给一次道具 3 选 1。' },
     { title: '图鉴', body: '18 只宝可梦，首次进入卡池即点亮并跨局保留。图鉴展示官方图鉴说明与基础信息（属性、基础收益、进化条件、稀有度）；点击转盘或卡池里的宝可梦可直接跳到对应图鉴条目。' }
@@ -99,7 +124,7 @@
     rentCount: RENT.length,
     rarityBoost: 1.2,     // 坂木的契约 / 神奇糖果每层的稀有度倍率
     saveVersion: 5,
-    cacheVersion: 12
+    cacheVersion: 13
   };
 
   // 演出时序（毫秒）：集中放置，后续接调速 UI 时只需覆盖这里

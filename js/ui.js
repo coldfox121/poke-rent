@@ -155,6 +155,21 @@
         cell.onclick = function (species) {
           return function () { if (!anim.active) showDex(species); };
         }(mon.id);
+        // 达成进化条件时在右下角挂可进化标识，点击确认才真正进化
+        if (E.canEvolve(game, mon.id)) {
+          var evo = document.createElement('button');
+          evo.type = 'button';
+          evo.className = 'cell-evo';
+          evo.textContent = '可进化';
+          evo.title = abilityCompareText(mon.id);
+          evo.onclick = function (species) {
+            return function (e) {
+              e.stopPropagation();
+              if (!anim.active) showEvolveConfirm(species);
+            };
+          }(mon.id);
+          cell.appendChild(evo);
+        }
       } else {
         cell.classList.add('empty');
         cell.textContent = '·';
@@ -216,6 +231,18 @@
         evo.className = 'evo';
         evo.textContent = game.evolveCount[id] + '/' + E.evolveThresholdOf(game);
         chip.appendChild(evo);
+      }
+      // 卡池里也提供进化入口，避免转盘没刷出该宝可梦时无法确认进化
+      if (E.canEvolve(game, speciesId)) {
+        var evoBtn = document.createElement('button');
+        evoBtn.className = 'pool-evo';
+        evoBtn.type = 'button';
+        evoBtn.textContent = '↑';
+        evoBtn.title = abilityCompareText(speciesId);
+        evoBtn.onclick = function (species) {
+          return function (ev) { ev.stopPropagation(); showEvolveConfirm(species); };
+        }(speciesId);
+        chip.appendChild(evoBtn);
       }
       // 有中心券时用独立 × 按钮移除该符号（不与进图鉴的点击冲突）
       if ((game.tokens.centerPass || 0) > 0) {
@@ -427,18 +454,69 @@
       + '<span style="color:' + RARITY.rare.color + '">稀有 ' + pct.rare + '%</span></div>';
   }
 
+  var offerShowEvo = false;
+
+  // 能力文案：名称 + 说明，供格子悬停、三选一、图鉴共用
+  function abilityText(id) {
+    var mon = POKEMON[id], ab = mon && mon.ability;
+    return ab ? ab.name + '：' + ab.text : '暂无特殊能力';
+  }
+
+  function abilityCompareText(id) {
+    var mon = POKEMON[id], to = mon && mon.evolveTo;
+    if (!to) return '无进化形态';
+    return '当前 ' + mon.name + '：' + abilityText(id) + '\n进化后 ' + POKEMON[to].name + '：' + abilityText(to);
+  }
+
+  function evoPreviewHtml(id) {
+    var mon = POKEMON[id], to = mon.evolveTo;
+    if (!to) return '<span class="evo-preview">无进化形态</span>';
+    var t = POKEMON[to];
+    return '<span class="evo-preview">进化后：' + t.name + ' · 基础 ' + t.base + '<br>' + abilityText(to) + '</span>';
+  }
+
+  function evoCardHtml(id, label) {
+    var mon = POKEMON[id], ty = TYPES[mon.type];
+    return '<div class="evo-card"><div class="evo-label">' + label + '</div>'
+      + '<img src="' + sprite(id) + '" alt="' + mon.name + '">'
+      + '<div class="nm">' + mon.name + '</div>'
+      + '<div class="meta">' + ty.name + ' · 基础 ' + mon.base + ' 金</div>'
+      + '<div class="ability">' + abilityText(id) + '</div></div>';
+  }
+
+  // 进化确认：先展示当前与进化后的能力对比，确认后才替换卡池
+  function showEvolveConfirm(id) {
+    var mon = POKEMON[id], to = mon && mon.evolveTo;
+    if (!to || !E.canEvolve(game, id)) return;
+    var html = '<h2>确认进化</h2><div class="lead">进化后卡池里的 ' + mon.name + ' 会全部变为 ' + POKEMON[to].name + '，能力同步替换。</div>'
+      + '<div class="evo-compare">' + evoCardHtml(id, '当前') + '<div class="evo-arrow">→</div>'
+      + evoCardHtml(to, '进化后') + '</div>'
+      + '<div class="modal-actions"><button class="btn btn-ghost" id="m-evo-cancel">再想想</button>'
+      + '<button class="btn btn-spin" id="m-evo-ok">确认进化</button></div>';
+    showModal(html);
+    $('m-evo-cancel').onclick = hideModal;
+    $('m-evo-ok').onclick = function () {
+      var r = E.evolve(game, id);
+      if (!r.ok) { alert('无法进化：' + r.reason); return; }
+      hideModal(); save(); render();
+    };
+  }
+
   function showOffer() {
     var pct = E.rarityPercent(game);
     var html = '<h2>选择一只宝可梦</h2><div class="lead">选中的宝可梦会加入卡池；也可以跳过保持卡池干净。可点「收起」对照上轮结果再决定。</div>'
       + probBar(pct)
       + (game.postRentOffer ? '<div class="badge">交租后：本次稀有度至少非凡</div>' : '')
+      + '<label class="evo-toggle"><input type="checkbox" id="m-show-evo"' + (offerShowEvo ? ' checked' : '') + '> 查看进化</label>'
       + '<div class="choices">';
     game.offer.forEach(function (id) {
       var mon = POKEMON[id], ty = TYPES[mon.type], rar = RARITY[mon.rarity];
       html += '<div class="choice" data-id="' + id + '"><img src="' + sprite(id) + '" alt="' + mon.name + '"><span class="nm">' + mon.name + '</span>'
         + '<span class="rar" style="color:' + rar.color + ';border-color:' + rar.color + '">' + rar.name + '</span>'
         + '<span class="ty-line"><span class="type-pill" style="background:' + ty.color + '">' + ty.name + '</span>'
-        + '<span class="base-tag">基础 ' + mon.base + '</span></span></div>';
+        + '<span class="base-tag">基础 ' + mon.base + '</span></span>'
+        + '<span class="ability-line">' + abilityText(id) + '</span>'
+        + (offerShowEvo ? evoPreviewHtml(id) : '') + '</div>';
     });
     html += '</div><div class="modal-actions">';
     if ((game.tokens.pokeBall || 0) > 0) html += '<button class="btn" id="m-reroll">精灵球 ×' + game.tokens.pokeBall + ' 刷新</button>';
@@ -463,6 +541,8 @@
     $('m-skip').onclick = function () {
       E.choose(game, null); hideModal(); save(); render(); afterChoose();
     };
+    var te = $('m-show-evo');
+    if (te) te.onchange = function () { offerShowEvo = te.checked; showOffer(); };
     var rr = $('m-reroll');
     if (rr) rr.onclick = function () {
       E.usePokeBall(game); save(); showOffer();
@@ -530,10 +610,36 @@
   function dexFunctionText(id) {
     var mon = POKEMON[id], ty = TYPES[mon.type];
     var s = '属性 ' + ty.name + ' · 基础收益 ' + mon.base + ' 金';
-    if (mon.evolveTo) s += ' · 累计上屏 ' + E.evolveThresholdOf(game) + ' 次进化为' + POKEMON[mon.evolveTo].name + '（基础 3 金）';
+    if (mon.evolveTo) s += ' · 累计上屏 ' + E.evolveThresholdOf(game) + ' 次后可确认进化为 ' + POKEMON[mon.evolveTo].name + '（基础 3 金）';
     else s += ' · 无进化形态';
     s += ' · 稀有度 ' + RARITY[mon.rarity].name;
     return s;
+  }
+
+  function preEvolutionOf(id) {
+    var keys = Object.keys(POKEMON);
+    for (var i = 0; i < keys.length; i++) {
+      var mon = POKEMON[keys[i]];
+      if (mon.evolveTo === id) return mon.id;
+    }
+    return null;
+  }
+
+  function dexEvoNode(id) {
+    if (id === null || id === undefined) return '';
+    if (dex.indexOf(id) < 0) return '<span class="muted">???</span>';
+    if (id === dexSelected) return '<span class="cur">' + POKEMON[id].name + '</span>';
+    return '<button type="button" class="dex-evo-btn" data-evo="' + id + '">' + POKEMON[id].name + '</button>';
+  }
+
+  function dexEvoChainHtml(id) {
+    var pre = preEvolutionOf(id), next = POKEMON[id].evolveTo;
+    var parts = [];
+    if (pre) parts.push(dexEvoNode(pre));
+    parts.push(dexEvoNode(id));
+    if (next) parts.push(dexEvoNode(next));
+    return '进化链：' + parts.join(' <span class="arrow">→</span> ')
+      + ((!pre && !next) ? ' <span class="muted">（无进化形态）</span>' : '');
   }
 
   function renderDexDetail(id) {
@@ -543,13 +649,22 @@
       box.innerHTML = '<p>尚未点亮：把这只宝可梦选入卡池即可解锁图鉴资料（跨局保留）。</p>';
       return;
     }
+    dexSelected = id;
     var mon = POKEMON[id], ty = TYPES[mon.type], rar = RARITY[mon.rarity];
     var official = (window.PR.dex && window.PR.dex[id]) || '暂无官方图鉴说明。';
     box.innerHTML = '<img src="' + sprite(id) + '" alt="' + mon.name + '">'
       + '<div class="body"><h3>' + mon.name + ' <span class="rar" style="color:' + rar.color + ';border-color:' + rar.color + '">' + rar.name + '</span>'
       + '<span class="badge">' + ty.name + '属性</span></h3>'
       + '<p>图鉴说明：' + official + '</p>'
-      + '<div class="fn">基础信息：' + dexFunctionText(id) + '</div></div>';
+      + '<div class="fn">基础信息：' + dexFunctionText(id) + '</div>'
+      + '<div class="fn" style="margin-top:6px">特殊能力：' + abilityText(id) + '</div>'
+      + '<div class="dex-evo">' + dexEvoChainHtml(id) + '</div></div>';
+    Array.prototype.forEach.call(box.querySelectorAll('.dex-evo-btn'), function (btn) {
+      btn.onclick = function () {
+        dexSelected = parseInt(btn.dataset.evo, 10);
+        renderDexDetail(dexSelected);
+      };
+    });
   }
 
   function showDex(focusId) {
@@ -958,24 +1073,7 @@
       Array.prototype.forEach.call(cells, function (cell) {
         cell.classList.remove('question');
       });
-      paintCells(res.grid); // 20 格同时亮出结果
-      // 进化特效：对应格子闪光 + 进化标记，让用户看见形态变化
-      (res.evolved || []).forEach(function (ev) {
-        ev.positions.forEach(function (p) {
-          var cell = cells[p];
-          if (!cell) return;
-          cell.classList.remove('evolving');
-          void cell.offsetWidth;
-          cell.classList.add('evolving');
-          var badge = document.createElement('div');
-          badge.className = 'evo-badge';
-          badge.innerHTML = '进化！ ' + POKEMON[ev.from].name + ' → ' + POKEMON[ev.to].name;
-          cell.appendChild(badge);
-          later(token, function () {
-            if (badge.parentNode) badge.parentNode.removeChild(badge);
-          }, animMs(ANIM.revealHold) + animMs(ANIM.settleTotal) + animMs(600));
-        });
-      });
+      paintCells(res.grid); // 20 格同时亮出结果；可进化的格子会自动挂上「可进化」标识
       $('machine-status').textContent = '结果已出，准备结算…';
       // 结果先停 0.5 秒，让玩家看清排布与克制关系，再开始逐格结算
       later(token, function () {
