@@ -64,6 +64,8 @@
 
 直接双击 `index.html` 即可游玩。存档在浏览器 localStorage 中。
 
+特殊能力设计页：部署后访问 `/ability-design.html`。保存功能依赖 Cloudflare Pages 的 KV 绑定，变量名为 `ABILITY_KV`；未绑定时页面可填写但无法保存（可先导出 Markdown）。
+
 ## 素材来源
 
 - 宝可梦精灵图：PokeAPI sprites（已下载到 `assets/pokemon/`，运行时不联网）

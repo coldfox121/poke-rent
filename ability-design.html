@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>宝可梦特殊能力设计表</title>
+<style>
+:root{--bg:#f4f1ea;--panel:#fff;--ink:#2c2c2a;--muted:#6b6a63;--line:#e3dfd4;--accent:#d85a30;--accent2:#993c1d;--ok:#3b6d11;--warn:#ba7517;--bad:#b4432f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 "PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 90px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;border-bottom:1px solid #d3cfc2;padding-bottom:14px;margin-bottom:16px}
+h1{font-size:20px;margin:0}
+.sub{color:var(--muted);font-size:12px;margin-top:2px}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button{font:inherit;border:1px solid #d3cfc2;background:#faf8f3;color:var(--ink);border-radius:9px;padding:8px 14px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent2);color:#fff;font-weight:600}
+button:hover{filter:brightness(.97)}
+.banner{padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px;display:none}
+.banner.err{display:block;background:#fff3f0;border:1px solid #e3b6ab;color:var(--bad)}
+.banner.info{display:block;background:#fff8e1;border:1px solid #e8d9a8;color:var(--warn)}
+.mon{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:grid;grid-template-columns:290px 1fr 210px;gap:14px}
+@media(max-width:820px){.mon{grid-template-columns:1fr}}
+.mon .name{font-weight:600;font-size:15px}
+.mon .meta{color:var(--muted);font-size:12px;margin:2px 0 6px}
+.mon .draft{font-size:12px;color:var(--muted)}
+.mon .draft b{color:var(--accent2);font-weight:600}
+textarea{width:100%;min-height:68px;resize:vertical;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fffdf8;color:var(--ink)}
+select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
+.controls{display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--muted)}
+.controls label{display:flex;gap:8px;align-items:center}
+h2{font-size:16px;margin:26px 0 12px}
+.prop{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:grid;gap:8px}
+.prop .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:700px){.prop .row{grid-template-columns:1fr}}
+.prop input{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fffdf8;width:100%}
+.prop .top{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
+.saved{font-size:12px;color:var(--muted)}
+.saved.ok{color:var(--ok)}
+.saved.bad{color:var(--bad)}
+footer{position:fixed;left:0;right:0;bottom:0;background:rgba(244,241,234,.96);border-top:1px solid #d3cfc2;padding:10px 16px;display:flex;justify-content:center;backdrop-filter:blur(4px)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>宝可梦特殊能力设计表</h1>
+    <div class="sub">草案只读；在「我的想法」里写修改内容，不想改的留空。保存后 AI 可直接读取。</div>
+  </div>
+  <div class="actions">
+    <span class="saved" id="status">加载中…</span>
+    <button id="btn-md">导出 Markdown</button>
+    <button class="primary" id="btn-save">保存到线上</button>
+  </div>
+</header>
+<div class="banner" id="banner"></div>
+<section id="list"></section>
+<h2>新增能力提案</h2>
+<div id="props"></div>
+<button id="btn-add">+ 添加提案</button>
+</div>
+<footer><button class="primary" id="btn-save2">保存到线上</button></footer>
+
+<script>
+var MONS = [
+  {id:1,name:'妙蛙种子',meta:'草 / 基础 1 / 稀有',ability:'萌芽',desc:'相邻每有 1 只宝可梦 +1，最多 +2',phase:'一期'},
+  {id:2,name:'妙蛙草',meta:'草 / 基础 3 / 稀有',ability:'繁茂',desc:'相邻每有 1 只宝可梦 +1，最多 +4',phase:'一期'},
+  {id:43,name:'走路草',meta:'草 / 基础 1 / 普通',ability:'扎根',desc:'位于底行 +3，其余位置 0',phase:'一期'},
+  {id:4,name:'小火龙',meta:'火 / 基础 1 / 稀有',ability:'火苗',desc:'每克制 1 个邻居 +1，最多 +3',phase:'一期'},
+  {id:5,name:'火恐龙',meta:'火 / 基础 3 / 稀有',ability:'烈焰',desc:'每克制 1 个邻居 +2，最多 +6',phase:'一期'},
+  {id:37,name:'六尾',meta:'火 / 基础 1 / 普通',ability:'暖炉',desc:'相邻火属性各 +1，最多 +2',phase:'一期'},
+  {id:7,name:'杰尼龟',meta:'水 / 基础 1 / 稀有',ability:'水枪',desc:'相邻每有 1 只水属性 +1，最多 +2',phase:'一期'},
+  {id:8,name:'卡咪龟',meta:'水 / 基础 3 / 稀有',ability:'水炮',desc:'相邻每有 1 只水属性 +2，最多 +4',phase:'一期'},
+  {id:54,name:'可达鸭',meta:'水 / 基础 1 / 普通',ability:'发呆',desc:'自身产出归零，左右相邻各 +2',phase:'一期'},
+  {id:25,name:'皮卡丘',meta:'电 / 基础 1 / 非凡',ability:'静电',desc:'没有被任何邻居克制时 +2',phase:'一期'},
+  {id:26,name:'雷丘',meta:'电 / 基础 3 / 稀有',ability:'十万伏特',desc:'被自己克制的邻居格各 +2',phase:'一期'},
+  {id:81,name:'小磁怪',meta:'电 / 基础 1 / 普通',ability:'磁力',desc:'相邻电属性各 +1，自身 +1',phase:'一期'},
+  {id:50,name:'地鼠',meta:'地面 / 基础 1 / 普通',ability:'打洞',desc:'角落 +3 / 边缘 +1 / 内部 0',phase:'一期'},
+  {id:51,name:'三地鼠',meta:'地面 / 基础 3 / 非凡',ability:'三重洞',desc:'角落 +4 / 边缘 +2 / 内部 +1',phase:'一期'},
+  {id:95,name:'大岩蛇',meta:'地面 / 基础 1 / 稀有',ability:'岩壁',desc:'邻域每有 1 只宝可梦 +1，最多 +4',phase:'一期'},
+  {id:86,name:'小海狮',meta:'冰 / 基础 1 / 普通',ability:'冰息',desc:'被自己克制的邻居本转不产出，自身 +1',phase:'二期'},
+  {id:87,name:'白海狮',meta:'冰 / 基础 3 / 非凡',ability:'极寒',desc:'被自己克制的邻居本转不产出，自身 +2',phase:'二期'},
+  {id:361,name:'雪童子',meta:'冰 / 基础 1 / 普通',ability:'雪隐',desc:'场上冰属性 ≥3 只时 +3',phase:'一期'}
+];
+var STATUS = ['待定','保留草案','已修改','不要了'];
+var KEY = 'ability-design-local';
+var state = { items: {}, proposals: [], savedAt: null };
+var dirty = false;
+
+function $(id){ return document.getElementById(id); }
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+  });
+}
+function item(id){
+  state.items[id] = state.items[id] || { idea:'', status:'待定', newKind:false };
+  return state.items[id];
+}
+function setStatus(text, kind){
+  $('status').textContent = text;
+  $('status').className = 'saved' + (kind === 1 ? ' ok' : kind === 2 ? ' bad' : '');
+}
+function banner(text, isErr){
+  var el = $('banner');
+  if (!text) { el.className = 'banner'; el.textContent = ''; return; }
+  el.className = 'banner ' + (isErr ? 'err' : 'info');
+  el.textContent = text;
+}
+function renderList(){
+  $('list').innerHTML = MONS.map(function(m){
+    var it = item(m.id);
+    return '<div class="mon">'
+      + '<div><div class="name">' + esc(m.name) + '</div>'
+      + '<div class="meta">' + esc(m.meta) + ' · ' + esc(m.phase) + '</div>'
+      + '<div class="draft"><b>' + esc(m.ability) + '</b>：' + esc(m.desc) + '</div></div>'
+      + '<textarea data-idea="' + m.id + '" placeholder="我的想法（留空表示保留草案）">' + esc(it.idea) + '</textarea>'
+      + '<div class="controls">'
+      + '<label>状态<select data-status="' + m.id + '">' + STATUS.map(function(s){
+          return '<option' + (it.status === s ? ' selected' : '') + '>' + s + '</option>';
+        }).join('') + '</select></label>'
+      + '<label><input type="checkbox" data-newkind="' + m.id + '"' + (it.newKind ? ' checked' : '') + '> 需要新 kind</label>'
+      + '</div></div>';
+  }).join('');
+}
+function renderProps(){
+  $('props').innerHTML = state.proposals.map(function(p, i){
+    return '<div class="prop">'
+      + '<div class="top"><span>提案 ' + (i + 1) + '</span><button data-del="' + i + '">删除</button></div>'
+      + '<div class="row"><input data-f="pokemon" data-i="' + i + '" placeholder="宝可梦" value="' + esc(p.pokemon) + '">'
+      + '<input data-f="name" data-i="' + i + '" placeholder="能力名" value="' + esc(p.name) + '"></div>'
+      + '<input data-f="trigger" data-i="' + i + '" placeholder="触发时机（上屏 / 结算前 / 每次克制 / 结算后 / 每转结束 / 交租时）" value="' + esc(p.trigger) + '">'
+      + '<textarea data-f="desc" data-i="' + i + '" placeholder="效果描述（自然语言）">' + esc(p.desc) + '</textarea>'
+      + '<div class="row"><input data-f="example" data-i="' + i + '" placeholder="示例盘面" value="' + esc(p.example) + '">'
+      + '<label style="display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px">'
+      + '<input type="checkbox" data-f="newKind" data-i="' + i + '"' + (p.newKind ? ' checked' : '') + '> 需要新 kind</label></div>'
+      + '</div>';
+  }).join('');
+}
+function touch(){
+  dirty = true;
+  setStatus('未保存');
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+}
+function normalize(payload){
+  var out = { items: {}, proposals: [], savedAt: state.savedAt };
+  var src = (payload && payload.items) || {};
+  MONS.forEach(function(m){
+    var v = src[m.id] || {};
+    out.items[m.id] = {
+      idea: typeof v.idea === 'string' ? v.idea : '',
+      status: STATUS.indexOf(v.status) >= 0 ? v.status : '待定',
+      newKind: !!v.newKind
+    };
+  });
+  var ps = (payload && payload.proposals) || [];
+  out.proposals = ps.map(function(p){
+    return { pokemon:p.pokemon || '', name:p.name || '', trigger:p.trigger || '',
+             desc:p.desc || '', example:p.example || '', newKind:!!p.newKind };
+  });
+  if (!out.proposals.length) out.proposals = [{}, {}];
+  return out;
+}
+async function load(){
+  var local = null;
+  try { local = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  try {
+    var r = await fetch('/api/ability-design', { cache:'no-store' });
+    var j = await r.json();
+    if (!j.ok) {
+      banner(j.error === 'KV_NOT_BOUND'
+        ? '线上存储还没绑定：请在 Cloudflare Pages 项目里添加 KV 绑定（变量名 ABILITY_KV）后重新部署。'
+        : '读取失败：' + j.error, true);
+    } else if (j.data && j.data.payload) {
+      state = normalize(j.data.payload);
+      state.savedAt = j.data.savedAt;
+    }
+  } catch (e) {
+    banner('读取失败：' + e.message + '（仍可在本机填写，保存时会再试）', true);
+  }
+  if (local && JSON.stringify(local.items) !== JSON.stringify(state.items)) {
+    if (confirm('检测到本机还有未保存的草稿，是否恢复？')) { state = normalize(local); dirty = true; }
+  }
+  renderList();
+  renderProps();
+  setStatus(state.savedAt ? '已加载 · ' + new Date(state.savedAt).toLocaleString() : '未保存', 1);
+}
+async function save(){
+  var payload = { items: state.items, proposals: state.proposals };
+  setStatus('保存中…');
+  try {
+    var r = await fetch('/api/ability-design', {
+      method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(payload)
+    });
+    var j = await r.json();
+    if (!j.ok) throw new Error(j.error === 'KV_NOT_BOUND' ? 'KV 未绑定，请先完成 Cloudflare 配置' : j.error);
+    state.savedAt = j.savedAt;
+    dirty = false;
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    banner('');
+    setStatus('已保存 · ' + new Date(j.savedAt).toLocaleString(), 1);
+  } catch (e) {
+    setStatus('保存失败', 2);
+    banner('保存失败：' + e.message, true);
+  }
+}
+function toMarkdown(){
+  var lines = ['# 宝可梦特殊能力设计（填写结果）', ''];
+  MONS.forEach(function(m){
+    var it = state.items[m.id];
+    if (!it || (!it.idea && it.status === '待定' && !it.newKind)) return;
+    lines.push('- ' + m.name + '（' + m.ability + '）｜' + it.status
+      + (it.newKind ? '｜需要新 kind' : '') + '：' + (it.idea || '（无文字）'));
+  });
+  state.proposals.forEach(function(p, i){
+    if (!p.pokemon && !p.name && !p.desc) return;
+    lines.push('', '## 提案 ' + (i + 1),
+      '- 宝可梦：' + p.pokemon, '- 能力名：' + p.name,
+      '- 触发时机：' + p.trigger, '- 效果：' + p.desc,
+      '- 示例盘面：' + p.example, '- 需要新 kind：' + (p.newKind ? '是' : '否'));
+  });
+  return lines.join('\n');
+}
+
+document.addEventListener('input', function(e){
+  var t = e.target;
+  if (t.dataset.idea) { item(t.dataset.idea).idea = t.value; touch(); }
+  else if (t.dataset.f) {
+    var i = +t.dataset.i, f = t.dataset.f;
+    state.proposals[i][f] = t.type === 'checkbox' ? t.checked : t.value;
+    touch();
+  }
+});
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if (t.dataset.status) { item(t.dataset.status).status = t.value; touch(); }
+  else if (t.dataset.newkind) { item(t.dataset.newkind).newKind = t.checked; touch(); }
+});
+document.addEventListener('click', function(e){
+  if (e.target.dataset.del !== undefined) {
+    state.proposals.splice(+e.target.dataset.del, 1);
+    renderProps(); touch();
+  }
+});
+$('btn-save').onclick = save;
+$('btn-save2').onclick = save;
+$('btn-add').onclick = function(){ state.proposals.push({}); renderProps(); touch(); };
+$('btn-md').onclick = function(){
+  var text = toMarkdown();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function(){ setStatus('Markdown 已复制', 1); },
+      function(){ prompt('复制下面的 Markdown：', text); });
+  } else { prompt('复制下面的 Markdown：', text); }
+};
+window.addEventListener('beforeunload', function(e){
+  if (!dirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+load();
+</script>
+</body>
+</html>
