@@ -27,12 +27,14 @@ const css = await get('/style.css?v=4');
 check(css.status === 200 && css.text.includes('.cell.question'), '问号演出样式已部署');
 const ui = await get('/js/ui.js?v=4');
 check(ui.status === 200 && ui.text.includes('class="rar"'), '稀有度标签已部署');
+const eng = await get('/js/engine.js?v=4');
+check(eng.status === 200 && eng.text.includes('postRentOffer'), '交租后强制稀有度逻辑已部署');
 
 // 静态资源
 const js = await get('/js/data.js?v=4');
 check(js.status === 200, 'data.js HTTP 200');
 check(js.text.includes('saveVersion: 3'), 'data.js 内容正确');
-check(js.text.includes('RARITY') && js.text.includes('postRentOffer'), '稀有度与交租后标记已部署');
+check(js.text.includes('RARITY'), '稀有度数据已部署');
 
 // 18 只宝可梦图
 const ids = [1, 2, 4, 5, 7, 8, 25, 26, 37, 43, 50, 51, 54, 81, 86, 87, 95, 361];
