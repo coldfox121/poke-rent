@@ -41,6 +41,7 @@ check(migrated.tokens && migrated.tokens.pokeBall === 0, '补齐 tokens 字段')
 check(Array.isArray(migrated.items) && migrated.items.length === 0, '补齐 items 字段');
 check(typeof migrated.evolveCount === 'object', '补齐 evolveCount 字段');
 check(migrated.contrib && Object.keys(migrated.contrib).length === 0, '旧档补齐 contrib 空对象');
+check(migrated.lastContrib && Object.keys(migrated.lastContrib).length === 0, 'v4 旧档纯加法补齐 lastContrib 空对象');
 check(migrated.postRentOffer === false, '旧档补齐 postRentOffer 字段');
 check(migrated.phase === 'spinning', '旧档 choosing/rentReward 状态回退到 spinning');
 
@@ -54,6 +55,9 @@ check(m2.legacyData === 'xyz', '未知字符串字段原样保留');
 const withContrib = { seed: 1, coins: 3, contrib: { '4': 12, '7': 5 } };
 const m4 = migrate(withContrib);
 check(m4.contrib['4'] === 12 && m4.contrib['7'] === 5, '已有 contrib 原样保留');
+const withLast = { seed: 1, lastContrib: { '4': 2, '7': 1 } };
+const m8 = migrate(withLast);
+check(m8.lastContrib['4'] === 2 && m8.lastContrib['7'] === 1, '已有 lastContrib 原样保留');
 
 // 测试3c：v3 单物品奖励迁移为数组
 const withItem = { seed: 2, itemOffer: 'coffee' };

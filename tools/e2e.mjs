@@ -21,14 +21,20 @@ page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
 await page.goto(URL, { waitUntil: 'networkidle0' });
 
-// ---- 开场故事（首次进入）----
-check(await page.$eval('#story-layer', el => el.style.display) === 'flex', '首次进入先显示故事弹窗');
-check(await page.$eval('#story-modal', el => el.textContent.includes('火箭队') && el.textContent.includes('7 轮') && el.textContent.includes('58 金')),
-  '故事弹窗含背景与本轮目标');
-await page.click('#m-story-start');
-check(await page.$eval('#story-layer', el => el.style.display) === 'none', '开始引导后故事弹窗关闭');
+// file:// 下 page.goto/reload 偶发 30s 导航超时，改用 location.reload() + 轮询就绪
+async function softReload() {
+  await page.evaluate(() => { location.reload(); });
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 400));
+    try {
+      const ok = await page.evaluate(() => document.readyState === 'complete' && !!document.getElementById('hud-progress'));
+      if (ok) return;
+    } catch (e) { /* 导航中上下文销毁，继续轮询 */ }
+  }
+  throw new Error('reload timeout');
+}
 
-// ---- 新手引导（首次进入）----
+// ---- 新手引导（首次进入，先于故事）----
 check(await page.$eval('#tutorial-layer', el => el.style.display) === 'block', '首次进入显示新手引导');
 check(await page.$eval('#tutorial-tip', el => el.textContent.includes('转动')), '引导第 1 步讲转动');
 // 引导期间页面按钮不可点，避免提前触发转动打乱流程
@@ -60,12 +66,20 @@ check(await page.$eval('#tutorial-layer', el => el.style.display) === 'none', '�
 const tutorSeen = await page.evaluate(() => localStorage.getItem('poke-rent-tutorial'));
 check(tutorSeen === '1', '引导完成标记写入 localStorage');
 
+// ---- 开场故事（首次引导结束后弹出）----
+check(await page.$eval('#story-layer', el => el.style.display) === 'flex', '首次引导结束后弹出故事弹窗');
+check(await page.$eval('#story-modal', el => el.textContent.includes('火箭队') && el.textContent.includes('7 轮') && el.textContent.includes('6 金') && el.textContent.includes('第 1 轮')),
+  '故事弹窗含背景与本轮目标');
+await page.click('#m-story-start');
+check(await page.$eval('#story-layer', el => el.style.display) === 'none', '故事弹窗可关闭');
+
 check(await page.$eval('#hud-coins', el => el.textContent) === '1', '初始金币 1');
 check(await page.$$eval('#reel .cell', els => els.length) === 20, '20 格网格');
 check(await page.$$eval('#pool .pool-chip', els => els.length) === 3, '初始卡池御三家 3 只');
 check(await page.$eval('#hud-progress', el => el.textContent) === '1/7', '进度显示 1/7（当前所在轮次）');
 check(await page.$eval('#dex-count', el => /3\/18/.test(el.textContent)), '图鉴按钮显示已点亮 3/18');
 check(await page.$$eval('#pool .pool-chip .pool-num', els => els.length) === 3, '卡池每种显示 ×N 张数');
+check(await page.$$eval('#pool .pool-type', els => els.length === 3 && els.every(el => el.textContent.trim())), '卡池 chip 显示宝可梦属性');
 
 // ---- 规则弹窗 ----
 check(await page.$eval('#btn-rules', el => el.textContent.includes('规则')), '顶栏规则按钮存在');
@@ -138,6 +152,10 @@ await new Promise(r => setTimeout(r, 420)); // 等展开动画收尾
 
 // 贡献排名
 check(await page.$$eval('#rank .rank-row', els => els.length) > 0, '贡献排名有记录');
+check(await page.$eval('#rank .rank-head', el => el.textContent.includes('本局累计') && el.textContent.includes('上一转')),
+  '贡献排名同时汇总本局与上一转');
+check(await page.$$eval('#rank .rank-last', els => els.length > 0 && els.some(el => /上转 \+\d+/.test(el.textContent))),
+  '每行显示上一转贡献');
 check(await page.$eval('#rank-box', el => !el.open), '排名面板默认折叠');
 
 // 选第一个
@@ -183,7 +201,8 @@ await page.evaluate(() => {
     itemOffer: [], lastGrid: [], lastGain: 0, log: []
   }));
 });
-await page.goto(URL, { waitUntil: 'load' });
+await softReload();
+if (await page.$eval('#story-layer', el => el.style.display) === 'flex') await page.click('#m-story-start');
 check(await page.$eval('#hud-progress', el => el.textContent) === '1/7', '交租前进度 1/7');
 await page.click('#btn-spin');
 await page.click('#btn-skip');
@@ -261,9 +280,13 @@ await new Promise(r => setTimeout(r, 1200)); // 等待 location.reload() 完成
 await page.waitForFunction(() => /3\/18/.test(document.getElementById('dex-count').textContent), { timeout: 15000 });
 check(await page.evaluate(() => localStorage.getItem('poke-rent-save') === null), '二次确认后本局存档已清空');
 check(await page.evaluate(() => localStorage.getItem('poke-rent-tutorial') === null), '新手引导标记已清空');
-check(await page.$eval('#story-layer', el => el.style.display) === 'flex', '清档后刷新先回到故事弹窗');
+check(await page.$eval('#tutorial-layer', el => el.style.display) === 'block', '清档后刷新重新先走新手引导');
 check(await page.$eval('#dex-count', el => /3\/18/.test(el.textContent)), '清档后图鉴重新从御三家开始点亮');
+// 引导已看过时：每次开局仍有故事，但不再出现引导
 await page.evaluate(() => { try { localStorage.setItem('poke-rent-tutorial', '1'); } catch (e) {} });
+await softReload();
+check(await page.$eval('#story-layer', el => el.style.display) === 'flex', '已看过引导后开局仍显示故事弹窗');
+check(await page.$eval('#tutorial-layer', el => el.style.display) === 'none', '已看过引导后不再显示新手引导');
 
 check(errors.length === 0, '无 JS 错误' + (errors.length ? ': ' + errors.join(' | ') : ''));
 

@@ -42,15 +42,16 @@
     361: { id: 361, name: '雪童子',   type: 'ice',      base: 1, rarity: 'common',   evolveTo: null }
   };
 
-  // 租金曲线：7 轮 × 固定 5 转，前松后紧；绝对值按模拟扫描调到「能赢但不稳赢」
+  // 租金曲线：7 轮 × 固定 5 转。当前为「临时测试难度」——按用户要求大幅调低，
+  // 目的是能顺利测到后段流程；后续做特殊能力时再按模拟重新扫描正式平衡。
   var RENT = [
-    { rent: 58,   spins: 5 },
-    { rent: 144,  spins: 5 },
-    { rent: 288,  spins: 5 },
-    { rent: 504,  spins: 5 },
-    { rent: 792,  spins: 5 },
-    { rent: 1152, spins: 5 },
-    { rent: 1728, spins: 5 }
+    { rent: 6,  spins: 5 },
+    { rent: 10, spins: 5 },
+    { rent: 14, spins: 5 },
+    { rent: 18, spins: 5 },
+    { rent: 22, spins: 5 },
+    { rent: 26, spins: 5 },
+    { rent: 30, spins: 5 }
   ];
 
   // 永久物品：当局生效、不可关闭；stackable=false 的道具已拥有后不再出现
@@ -97,8 +98,8 @@
     rerollPerRent: 1,     // 每次交租后赠送精灵球
     rentCount: RENT.length,
     rarityBoost: 1.2,     // 坂木的契约 / 神奇糖果每层的稀有度倍率
-    saveVersion: 4,
-    cacheVersion: 9
+    saveVersion: 5,
+    cacheVersion: 10
   };
 
   // 演出时序（毫秒）：集中放置，后续接调速 UI 时只需覆盖这里

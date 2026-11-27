@@ -30,7 +30,7 @@
       saveVersion: D.CONFIG.saveVersion,
       seed: game.seed,
       coins: game.coins, pool: game.pool, evolveCount: game.evolveCount,
-      contrib: game.contrib || {},
+      contrib: game.contrib || {}, lastContrib: game.lastContrib || {},
       items: game.items, tokens: game.tokens, rentIndex: game.rentIndex,
       spinsLeft: game.spinsLeft, totalSpins: game.totalSpins,
       coffeeUsed: game.coffeeUsed, postRentOffer: !!game.postRentOffer, phase: game.phase,
@@ -80,6 +80,7 @@
     if (!Array.isArray(g.log)) g.log = [];
     if (!g.evolveCount || typeof g.evolveCount !== 'object') g.evolveCount = {};
     if (!g.contrib || typeof g.contrib !== 'object') g.contrib = {};
+    if (!g.lastContrib || typeof g.lastContrib !== 'object') g.lastContrib = {};
     if (typeof g.postRentOffer !== 'boolean') g.postRentOffer = false;
     // v3 的 itemOffer 是单个 id，v4 起改为数组（纯加法迁移：旧值转成单元素数组）
     if (typeof g.itemOffer === 'string') g.itemOffer = [g.itemOffer];
@@ -176,6 +177,12 @@
       var label = document.createElement('span');
       label.textContent = mon.name;
       chip.appendChild(label);
+      // 卡池 chip 显示属性，和转盘的克制关系对照更直观
+      var tyTag = document.createElement('span');
+      tyTag.className = 'pool-type';
+      tyTag.style.background = TYPES[mon.type].color;
+      tyTag.textContent = TYPES[mon.type].name;
+      chip.appendChild(tyTag);
       // 每种显示张数 ×N
       var num = document.createElement('span');
       num.className = 'pool-num';
@@ -266,13 +273,20 @@
     });
   }
 
-  // 本局贡献金币排名：按宝可梦种类累计，降序；__other 为物品等额外来源
+  // 贡献金币排名：同时记录本局累计与上一转贡献；__other 为物品等额外来源
   function renderRank() {
-    var c = game.contrib || {};
-    var rows = Object.keys(c).filter(function (k) { return c[k] > 0 && (k === '__other' || POKEMON[k]); })
-      .map(function (k) { return { key: k, val: c[k] }; })
-      .sort(function (a, b) { return b.val - a.val; });
+    var c = game.contrib || {}, last = game.lastContrib || {};
+    var keys = [];
+    Object.keys(c).concat(Object.keys(last)).forEach(function (k) {
+      if (keys.indexOf(k) < 0) keys.push(k);
+    });
+    var rows = keys.filter(function (k) {
+      return (c[k] > 0 || last[k] > 0) && (k === '__other' || POKEMON[k]);
+    }).map(function (k) {
+      return { key: k, val: c[k] || 0, lastVal: last[k] || 0 };
+    }).sort(function (a, b) { return b.val - a.val || b.lastVal - a.lastVal; });
     var total = rows.reduce(function (s, r) { return s + r.val; }, 0);
+    var lastTotal = rows.reduce(function (s, r) { return s + r.lastVal; }, 0);
     $('rank-total').textContent = total;
     var box = $('rank');
     box.innerHTML = '';
@@ -280,7 +294,11 @@
       box.innerHTML = '<div class="empty">还没有收益</div>';
       return;
     }
-    var top = rows[0].val;
+    var head = document.createElement('div');
+    head.className = 'rank-head';
+    head.innerHTML = '<span>本局累计 <b>' + total + '</b></span><span>上一转 <b>' + lastTotal + '</b></span>';
+    box.appendChild(head);
+    var top = Math.max(1, rows[0].val);
     rows.forEach(function (r, i) {
       var other = r.key === '__other';
       var row = document.createElement('div');
@@ -297,10 +315,15 @@
       var bar = document.createElement('i');
       bar.style.width = Math.max(3, Math.round(r.val / top * 100)) + '%';
       barWrap.appendChild(bar);
-      var val = document.createElement('span');
-      val.className = 'rank-val'; val.textContent = '+' + r.val;
+      var nums = document.createElement('span');
+      nums.className = 'rank-nums';
+      var cur = document.createElement('span');
+      cur.className = 'rank-cur'; cur.textContent = '+' + r.val;
+      var lastEl = document.createElement('span');
+      lastEl.className = 'rank-last'; lastEl.textContent = '上转 +' + r.lastVal;
+      nums.appendChild(cur); nums.appendChild(lastEl);
       row.appendChild(idx); row.appendChild(img); row.appendChild(name);
-      row.appendChild(barWrap); row.appendChild(val);
+      row.appendChild(barWrap); row.appendChild(nums);
       box.appendChild(row);
     });
   }
@@ -574,12 +597,11 @@
       + '<div class="story-goal"><h3>本局目标 · 第 ' + (game.rentIndex + 1) + ' 轮</h3>'
       + '<p>每轮 ' + rent.spins + ' 转，本轮需凑够 <b>' + rent.rent + ' 金</b>。'
       + '撑过第 7 轮即通关；交不起房租就会被赶出公寓。</p></div>'
-      + '<div class="modal-actions"><button class="btn btn-spin" id="m-story-start">开始新手引导</button></div>';
+      + '<div class="modal-actions"><button class="btn btn-spin" id="m-story-start">开始游戏</button></div>';
     $('story-modal').innerHTML = html;
     $('story-layer').style.display = 'flex';
     $('m-story-start').onclick = function () {
       $('story-layer').style.display = 'none';
-      startTutorial(false);
     };
   }
 
@@ -594,9 +616,13 @@
   var tutorialStep = 0, tutorialForced = false, tutorialRaf = null;
 
   function tutorialDone() {
+    var wasFirstTime = !tutorialForced; // 规则页「重看引导」不弹故事
     try { localStorage.setItem(TUTOR_KEY, '1'); } catch (e) {}
     $('tutorial-layer').style.display = 'none';
     if (tutorialRaf) { cancelAnimationFrame(tutorialRaf); tutorialRaf = null; }
+    tutorialForced = false;
+    // 首次进入：先走完引导，再弹开场故事；之后每次开局只弹故事
+    if (wasFirstTime) showIntro();
   }
 
   // 高亮框跟随目标元素：页面滚动、窗口缩放、游戏重绘导致布局变化时实时更新
@@ -761,6 +787,7 @@
     $('modal-layer').style.display = 'none';
     $('modal-dock').style.display = 'none';
     save(); render();
+    showIntro(); // 每次开局都显示故事背景与本轮目标
   }
 
   // 清除所有存档：本局进度 + 跨局图鉴 + 新手引导标记，需两次确认
@@ -1009,7 +1036,8 @@
     // 首次进入显示新手引导（跨局只显示一次，可从规则页重看）
     var seen = false;
     try { seen = localStorage.getItem(TUTOR_KEY) === '1'; } catch (e) {}
-    if (!seen) showIntro();
+    if (!seen) startTutorial(false); // 首次：先引导
+    else showIntro();                // 之后每次开局：只弹故事
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

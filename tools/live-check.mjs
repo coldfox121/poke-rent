@@ -1,6 +1,6 @@
 /* 线上验收：对 Pages 部署后的 URL 做资源连通性与缓存版本校验 */
 const BASE = process.argv[2] || 'https://poke-rent.pages.dev';
-const V = '9';
+const V = '10';
 
 let failures = 0;
 function check(c, m) { if (!c) { failures++; console.error('FAIL ' + m); } else console.log('PASS ' + m); }
@@ -45,6 +45,8 @@ check(css.text.includes('.type-pill'), '选择卡片属性彩色标签样式已�
 check(css.text.includes('.choice img{width:96px'), '三选一宝可梦图标放大样式已部署');
 check(css.text.includes('.hud-click{cursor:default'), '进度格无可点击视觉暗示已部署');
 check(css.text.includes('.story-layer{z-index:110}'), '开场故事弹窗样式已部署');
+check(css.text.includes('.pool-type'), '卡池属性标签样式已部署');
+check(css.text.includes('.rank-nums'), '本局/上一转双列排名样式已部署');
 check(!css.text.includes('.float-link'), '联动目标不带文字标识已部署');
 check(css.text.includes('.debug-grid'), '调试窗口样式已部署');
 const ui = await get('/js/ui.js?v=' + V);
@@ -54,6 +56,7 @@ check(ui.text.includes('showDex'), '图鉴弹窗逻辑已部署');
 check(ui.text.includes('collapseToDock'), '收起飞向按钮动画已部署');
 check(ui.text.includes('showRules'), '规则弹窗逻辑已部署');
 check(ui.text.includes('showIntro'), '开场故事逻辑已部署');
+check(ui.text.includes('lastContrib'), '上一转贡献存档字段已部署');
 check(ui.text.includes('startTutorial'), '新手引导逻辑已部署');
 check(ui.text.includes('trackTutorial'), '引导高亮实时跟随逻辑已部署');
 check(ui.text.includes('clearAllSaves'), '清除存档逻辑已部署');
@@ -72,7 +75,8 @@ check(js.status === 200, 'data.js HTTP 200');
 check(js.text.includes('revealHold: 500'), '结果停留 0.5 秒参数已部署');
 check(js.text.includes('STARTER_POOL: [1, 4, 7]'), '开局御三家 3 只已部署');
 check(js.text.includes('RULES: RULES'), '规则数据已部署');
-check(js.text.includes('saveVersion: 4'), 'data.js 存档版本正确');
+check(js.text.includes('saveVersion: 5'), 'data.js 存档版本正确');
+check(js.text.includes('{ rent: 6,  spins: 5 }'), '临时低难度租金已部署');
 check(js.text.includes('itemOfferCount: 3'), '道具 3 选 1 配置已部署');
 check(js.text.includes('RARITY'), '稀有度数据已部署');
 const dexData = await get('/js/dex-data.js?v=' + V);

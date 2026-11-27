@@ -4,7 +4,7 @@
 
 所有静态资源引用必须带 `?v=N`，且 `index.html` 与 JS 内部动态拼接的版本号必须一致：
 
-- `index.html` 中 `style.css?v=9`、`js/data.js?v=9`、`js/dex-data.js?v=9`、`js/engine.js?v=9`、`js/ui.js?v=9`、`assets/items/poke-ball.png?v=9`
+- `index.html` 中 `style.css?v=10`、`js/data.js?v=10`、`js/dex-data.js?v=10`、`js/engine.js?v=10`、`js/ui.js?v=10`、`assets/items/poke-ball.png?v=10`
 - `js/ui.js` 中 `CACHE_V = D.CONFIG.cacheVersion`，与上面保持同步
 - `js/data.js` 中 `CONFIG.cacheVersion = 7`
 - 新增静态文件（`js/dex-data.js`）也必须带同一个 `?v=N`，并加入 `tools/live-check.mjs` 校验
@@ -13,7 +13,7 @@
 
 ## 存档版本 `SAVE_VERSION`
 
-`js/data.js` 中 `CONFIG.saveVersion`，当前为 4（v1.1.0 新增 `contrib`；v1.3.0 新增 `postRentOffer`；v1.4.0 `itemOffer` 由单 id 改为数组，并对旧版 12 轮进度做越界保护）。v1.5.0 全部为 UI/规则/展示改动 + 开局卡池改为御三家 3 只（旧档卡池原样保留，不强制覆盖），无存档结构变化，故不升级。v1.5.1 的引擎结算信息新增 `links`（逐条联动目标）只用于当转动画，不写入存档；清档功能只是删除 localStorage key，同样不涉及结构变化，故仍不升级。v1.5.3 仅调整阶段流转顺序与新增开场弹窗，`phase` 取值集合不变、无新增存档字段，仍不升级。
+`js/data.js` 中 `CONFIG.saveVersion`，当前为 5。历史：v1.1.0 新增 `contrib`；v1.3.0 新增 `postRentOffer`；v1.4.0 `itemOffer` 由单 id 改为数组；v1.5.0~v1.5.3 均为 UI/流程改动，未升级；**v1.5.4 新增 `lastContrib`（上一转按物种贡献）**，属于结构变化，故 4→5。迁移为纯加法：`migrate()` 先原样继承旧档所有字段，再补 `{}` 默认，旧档无该字段时上一转贡献显示 0。
 
 图鉴进度单独存在 `poke-rent-dex` 这个 localStorage key（跨局保留），不属于单局存档结构，重开不清零。新手引导完成标记单独存在 `poke-rent-tutorial`（跨局只显示一次，可从规则页重看），同样不属于单局存档。
 

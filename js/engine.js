@@ -27,6 +27,7 @@
       evolveCount: {},            // 物种 id -> 累计上屏次数
       items: [],                  // 已拥有的永久物品 id
       contrib: {},                // 本局贡献金币：物种 id -> 累计金币（__other 为物品等来源）
+      lastContrib: {},            // 上一转贡献金币：物种 id -> 该转金币（__other 为物品等来源）
       tokens: { pokeBall: 0, centerPass: 0 },
       rentIndex: 0,               // 当前第几轮租金（0-based）
       spinsLeft: RENT[0].spins,
@@ -276,6 +277,7 @@
     Object.keys(result.bySpecies).forEach(function (k) {
       g.contrib[k] = (g.contrib[k] || 0) + result.bySpecies[k];
     });
+    g.lastContrib = result.bySpecies;
     var evolved = applyEvolution(g, grid);
     g.log.push('第 ' + g.totalSpins + ' 转：+' + result.total + ' 金');
     if (g.spinsLeft <= 0) {
