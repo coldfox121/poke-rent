@@ -1,6 +1,6 @@
 /* 线上验收：对 Pages 部署后的 URL 做资源连通性与缓存版本校验 */
 const BASE = process.argv[2] || 'https://poke-rent.pages.dev';
-const V = '8';
+const V = '9';
 
 let failures = 0;
 function check(c, m) { if (!c) { failures++; console.error('FAIL ' + m); } else console.log('PASS ' + m); }
@@ -25,6 +25,7 @@ check(home.text.includes('btn-skip'), '跳过动画按钮已部署');
 check(home.text.includes('modal-dock'), '选择弹窗收起按钮已部署');
 check(home.text.includes('btn-dex'), '图鉴按钮已部署');
 check(home.text.includes('btn-rules'), '规则按钮已部署');
+check(home.text.includes('story-layer'), '开场故事弹窗层已部署');
 check(home.text.includes('tutorial-layer'), '新手引导层已部署');
 check(home.text.includes('debug-layer'), '调试窗口层已部署');
 check(home.text.includes('btn-clear-save'), '清除存档按钮已部署');
@@ -43,7 +44,8 @@ check(css.text.includes('.btn-danger'), '清除存档按钮样式已部署');
 check(css.text.includes('.type-pill'), '选择卡片属性彩色标签样式已部署');
 check(css.text.includes('.choice img{width:96px'), '三选一宝可梦图标放大样式已部署');
 check(css.text.includes('.hud-click{cursor:default'), '进度格无可点击视觉暗示已部署');
-check(css.text.includes('.float-link'), '联动目标跳动提示样式已部署');
+check(css.text.includes('.story-layer{z-index:110}'), '开场故事弹窗样式已部署');
+check(!css.text.includes('.float-link'), '联动目标不带文字标识已部署');
 check(css.text.includes('.debug-grid'), '调试窗口样式已部署');
 const ui = await get('/js/ui.js?v=' + V);
 check(ui.status === 200 && ui.text.includes('class="rar"'), '稀有度标签已部署');
@@ -51,6 +53,7 @@ check(ui.text.includes('m-hide'), '收起弹窗逻辑已部署');
 check(ui.text.includes('showDex'), '图鉴弹窗逻辑已部署');
 check(ui.text.includes('collapseToDock'), '收起飞向按钮动画已部署');
 check(ui.text.includes('showRules'), '规则弹窗逻辑已部署');
+check(ui.text.includes('showIntro'), '开场故事逻辑已部署');
 check(ui.text.includes('startTutorial'), '新手引导逻辑已部署');
 check(ui.text.includes('trackTutorial'), '引导高亮实时跟随逻辑已部署');
 check(ui.text.includes('clearAllSaves'), '清除存档逻辑已部署');
@@ -62,6 +65,7 @@ const eng = await get('/js/engine.js?v=' + V);
 check(eng.status === 200 && eng.text.includes('postRentOffer'), '交租后强制稀有度逻辑已部署');
 check(eng.text.includes('rollItemOffer'), '道具 3 选 1 逻辑已部署');
 check(eng.text.includes("kind: 'counter'"), '通用联动目标数据已部署');
+check(eng.text.includes('交租轮最后一转不弹三选一'), '交租轮先收租后选宝可梦流程已部署');
 // 静态资源
 const js = await get('/js/data.js?v=' + V);
 check(js.status === 200, 'data.js HTTP 200');

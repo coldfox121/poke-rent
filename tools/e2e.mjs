@@ -21,6 +21,13 @@ page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
 await page.goto(URL, { waitUntil: 'networkidle0' });
 
+// ---- 开场故事（首次进入）----
+check(await page.$eval('#story-layer', el => el.style.display) === 'flex', '首次进入先显示故事弹窗');
+check(await page.$eval('#story-modal', el => el.textContent.includes('火箭队') && el.textContent.includes('7 轮') && el.textContent.includes('58 金')),
+  '故事弹窗含背景与本轮目标');
+await page.click('#m-story-start');
+check(await page.$eval('#story-layer', el => el.style.display) === 'none', '开始引导后故事弹窗关闭');
+
 // ---- 新手引导（首次进入）----
 check(await page.$eval('#tutorial-layer', el => el.style.display) === 'block', '首次进入显示新手引导');
 check(await page.$eval('#tutorial-tip', el => el.textContent.includes('转动')), '引导第 1 步讲转动');
@@ -180,9 +187,8 @@ await page.goto(URL, { waitUntil: 'load' });
 check(await page.$eval('#hud-progress', el => el.textContent) === '1/7', '交租前进度 1/7');
 await page.click('#btn-spin');
 await page.click('#btn-skip');
-await page.waitForSelector('.modal', { visible: true });
-await page.click('.choice');
 await page.waitForSelector('#m-pay', { visible: true });
+check(await page.$('.choice[data-id]') === null, '交租轮转动后不先弹宝可梦三选一');
 await page.click('#m-pay');
 await page.waitForSelector('.choice[data-item]', { visible: true });
 check(await page.$$eval('.choice[data-item]', els => els.length) === 3, '交租后道具 3 选 1');
@@ -192,6 +198,9 @@ const tk = await page.$eval('#tokens', el => el.textContent);
 check(/精灵中心券 ×[2-9]/.test(tk) && /精灵球 ×[1-9]/.test(tk), '交租后发放删除券与刷新球');
 check(await page.$eval('#hud-progress', el => el.textContent) === '2/7', '交租一次后进度 2/7');
 await page.click('.choice[data-item]');
+await page.waitForSelector('.choice[data-id]', { visible: true });
+check(await page.$eval('.badge', el => el.textContent.includes('至少非凡')), '交租后的宝可梦三选一在道具之后出现且保留稀有度提升');
+await page.click('.choice[data-id]');
 
 // ---- 管理员调试窗口：连点进度 5 次 + 密码 ----
 await page.evaluate(() => { window.prompt = () => '1997121'; });
@@ -233,8 +242,10 @@ await page.click('#btn-spin');
 await page.waitForFunction(() => document.querySelectorAll('.float-gain').length >= 2, { timeout: 4000 });
 check(await page.$$eval('.float-gain', els => els.filter(el => el.textContent.startsWith('+2')).length) >= 2,
   '克制 2 个邻居显示两次 +2，而不是一次 +4');
-check(await page.$$eval('.float-link', els => els.length) >= 2, '两个被克制的目标格各自显示联动提示');
-check(await page.$$eval('.cell.linked', els => els.length) >= 1, '被克制的目标格参与跳动高亮');
+check(await page.$$eval('.float-link', els => els.length) === 0 && await page.$$eval('.cell.linked', els => els.length) === 0,
+  '目标格不显示「被联动」文字或边框标识');
+check(await page.$$eval('#reel .cell', els => els.filter(el => el.querySelector('img.bounce')).length) >= 2,
+  '源格与被克制的目标格一起跳动');
 await page.click('#btn-skip');
 await page.waitForSelector('.modal', { visible: true });
 await page.click('#m-hide');
@@ -250,7 +261,7 @@ await new Promise(r => setTimeout(r, 1200)); // 等待 location.reload() 完成
 await page.waitForFunction(() => /3\/18/.test(document.getElementById('dex-count').textContent), { timeout: 15000 });
 check(await page.evaluate(() => localStorage.getItem('poke-rent-save') === null), '二次确认后本局存档已清空');
 check(await page.evaluate(() => localStorage.getItem('poke-rent-tutorial') === null), '新手引导标记已清空');
-check(await page.$eval('#tutorial-layer', el => el.style.display) === 'block', '清档后刷新回到新手引导');
+check(await page.$eval('#story-layer', el => el.style.display) === 'flex', '清档后刷新先回到故事弹窗');
 check(await page.$eval('#dex-count', el => /3\/18/.test(el.textContent)), '清档后图鉴重新从御三家开始点亮');
 await page.evaluate(() => { try { localStorage.setItem('poke-rent-tutorial', '1'); } catch (e) {} });
 

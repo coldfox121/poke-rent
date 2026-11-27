@@ -132,6 +132,21 @@ check(E.neighbors(1).length === 5, '边中 5 邻居');
   check(Array.isArray(g2.itemOffer) && g2.itemOffer.length === 3, '交租后 itemOffer 为 3 元素数组');
 }
 {
+  // 交租轮顺序：第 5 转 → 收租 → 领道具 → 才选宝可梦
+  const g = E.createGame(42);
+  g.coins = 9999; g.spinsLeft = 1; g.phase = 'spinning';
+  const spin = E.spin(g);
+  check(spin.ok && g.phase === 'rentDue' && g.offer.length === 0, '交租轮最后一转不弹三选一，直接进入收租');
+  const pay = E.payRent(g);
+  check(pay.ok && g.phase === 'rentReward', '收租后进入道具奖励');
+  const take = E.takeItem(g, g.itemOffer[0]);
+  check(g.phase === 'choosing' && g.offer.length === 3, '领完道具后才生成并展示宝可梦三选一');
+  check(g.postRentOffer === true, '交租后的三选一保留稀有度提升');
+  check(take.offer.length === 3, 'takeItem 返回新的三选一');
+  E.choose(g, g.offer[0]);
+  check(g.phase === 'spinning' && g.spinsLeft === 5, '选完宝可梦后开始下一轮 5 转');
+}
+{
   const g = E.createGame(8);
   g.rentIndex = 2;
   g.items = ['contract', 'rareCandy'];

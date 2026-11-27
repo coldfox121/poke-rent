@@ -459,7 +459,7 @@
 
   function showItemReward() {
     var offers = (game.itemOffer || []).filter(function (id) { return !!ITEMS[id]; });
-    if (offers.length === 0) { game.phase = 'spinning'; save(); render(); return; }
+    if (offers.length === 0) { E.takeItem(game, null); save(); render(); showOffer(); return; }
     var pct = E.rarityPercent(game, true);
     var html = '<h2>交租奖励 · 道具 3 选 1</h2><div class="lead">按与宝可梦相同的稀有度权重抽取，选一件永久物品加入本局；同类效果可叠加。</div>';
     html += probBar(pct);
@@ -476,12 +476,12 @@
     Array.prototype.forEach.call(document.querySelectorAll('.choice[data-item]'), function (el) {
       el.onclick = function () {
         E.takeItem(game, el.dataset.item);
-        hideModal(); save(); render();
+        hideModal(); save(); render(); showOffer();
       };
     });
     $('m-skip-item').onclick = function () {
       E.takeItem(game, null);
-      hideModal(); save(); render();
+      hideModal(); save(); render(); showOffer();
     };
   }
 
@@ -561,6 +561,25 @@
     $('m-rules-tutorial').onclick = function () {
       $('rules-layer').style.display = 'none';
       startTutorial(true);
+    };
+  }
+
+  // 开场：故事背景 + 本局/本轮目标，只在首次进入（或清档后）出现
+  function showIntro() {
+    var rent = D.RENT[game.rentIndex] || D.RENT[0];
+    var html = '<span class="story-mark">火箭队收租行动</span><h2>精灵球机与七轮房租</h2>'
+      + '<div class="story-text">你刚被派到一栋被宝可梦占满的公寓，当上火箭队实习收租员。'
+      + '总部下了死命令：用那台会吐出宝可梦的精灵球机凑出房租，连续 7 轮把保护费交上去，公寓才算保住。'
+      + '属性相克越狠，收得越多——让宝可梦们互相帮忙吧。</div>'
+      + '<div class="story-goal"><h3>本局目标 · 第 ' + (game.rentIndex + 1) + ' 轮</h3>'
+      + '<p>每轮 ' + rent.spins + ' 转，本轮需凑够 <b>' + rent.rent + ' 金</b>。'
+      + '撑过第 7 轮即通关；交不起房租就会被赶出公寓。</p></div>'
+      + '<div class="modal-actions"><button class="btn btn-spin" id="m-story-start">开始新手引导</button></div>';
+    $('story-modal').innerHTML = html;
+    $('story-layer').style.display = 'flex';
+    $('m-story-start').onclick = function () {
+      $('story-layer').style.display = 'none';
+      startTutorial(false);
     };
   }
 
@@ -759,14 +778,14 @@
   }
 
   function clearAnimDom() {
-    Array.prototype.forEach.call(document.querySelectorAll('.float-gain,.float-link,.coin-fly,.evo-badge'), function (el) {
+    Array.prototype.forEach.call(document.querySelectorAll('.float-gain,.coin-fly,.evo-badge'), function (el) {
       if (el.parentNode) el.parentNode.removeChild(el);
     });
     Array.prototype.forEach.call(document.querySelectorAll('#reel .cell img'), function (el) {
       el.classList.remove('bounce');
     });
     Array.prototype.forEach.call($('reel').children, function (el) {
-      el.classList.remove('rolling', 'question', 'settling', 'evolving', 'linked');
+      el.classList.remove('rolling', 'question', 'settling', 'evolving');
       el.style.animationDelay = '';
     });
   }
@@ -808,12 +827,8 @@
   // 播放一条联动收益：源格与目标格一起跳，各自显示收益来源，金币按这条单独入账
   function playLink(token, cell, targetCell, amount, label, floats) {
     bounceSprite(cell.querySelector('img'));
-    if (targetCell) {
-      bounceSprite(targetCell.querySelector('img'));
-      targetCell.classList.add('linked');
-      floats.push(addFloat(targetCell, '被联动', 'float-link'));
-      later(token, function () { targetCell.classList.remove('linked'); }, 260);
-    }
+    // 目标格只跟着跳，不加任何文字/边框标识
+    if (targetCell) bounceSprite(targetCell.querySelector('img'));
     floats.push(addFloat(cell, '+' + amount + '<small>' + label + '</small>', 'float-gain'));
     flyCoin(cell);
   }
@@ -839,21 +854,26 @@
     box.classList.add('tick');
   }
 
+  // 转动演出结束后按引擎阶段分流：交租轮先收租，普通轮才选宝可梦
+  function afterSpin() {
+    render();
+    if (game.phase === 'rentDue') showRent();
+    else showOffer();
+  }
+
   function finishAnim(token) {
     if (!anim.active || token !== anim.token) return;
     anim.active = false;
     anim.timers = [];
     clearAnimDom();
     $('btn-skip').style.display = 'none';
-    render();
-    showOffer();
+    afterSpin();
   }
 
   function skipAnim() {
     if (!anim.active) return;
     abortAnim();
-    render();
-    showOffer();
+    afterSpin();
   }
 
   // 阶段 A：所有格子同时变问号，格子边框和页面完全不动
@@ -989,7 +1009,7 @@
     // 首次进入显示新手引导（跨局只显示一次，可从规则页重看）
     var seen = false;
     try { seen = localStorage.getItem(TUTOR_KEY) === '1'; } catch (e) {}
-    if (!seen) startTutorial(false);
+    if (!seen) showIntro();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

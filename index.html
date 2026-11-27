@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>宝可梦房东 · poke-rent</title>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 <div id="app">
@@ -15,7 +15,7 @@
       <div class="hud-item"><span class="hud-label">下次房租</span><span class="hud-value" id="hud-rent">80</span></div>
       <div class="hud-item"><span class="hud-label">剩余转动</span><span class="hud-value" id="hud-spins">5</span></div>
       <div class="hud-item hud-click" id="hud-progress-box"><span class="hud-label">进度</span><span class="hud-value" id="hud-progress">1/7</span></div>
-      <button class="btn btn-ghost btn-dex" id="btn-dex"><img class="btn-ico" src="assets/items/poke-ball.png?v=8" alt="">图鉴 <span id="dex-count">0/18</span></button>
+      <button class="btn btn-ghost btn-dex" id="btn-dex"><img class="btn-ico" src="assets/items/poke-ball.png?v=9" alt="">图鉴 <span id="dex-count">0/18</span></button>
       <button class="btn btn-ghost btn-rules" id="btn-rules"><span class="btn-ico btn-ico-rule">📜</span>规则</button>
     </div>
   </header>
@@ -76,6 +76,11 @@
     <div class="modal debug-modal" id="debug-modal"></div>
   </div>
 
+  <!-- 首次进入：故事背景与本局目标 -->
+  <div class="modal-layer story-layer" id="story-layer" style="display:none">
+    <div class="modal story-modal" id="story-modal"></div>
+  </div>
+
   <!-- 首次进入新手引导 -->
   <div class="tutorial-layer" id="tutorial-layer" style="display:none">
     <div class="tutorial-mask" id="tutorial-mask"></div>
@@ -83,9 +88,9 @@
     <div class="tutorial-tip" id="tutorial-tip"></div>
   </div>
 </div>
-<script src="js/data.js?v=8"></script>
-<script src="js/dex-data.js?v=8"></script>
-<script src="js/engine.js?v=8"></script>
-<script src="js/ui.js?v=8"></script>
+<script src="js/data.js?v=9"></script>
+<script src="js/dex-data.js?v=9"></script>
+<script src="js/engine.js?v=9"></script>
+<script src="js/ui.js?v=9"></script>
 </body>
 </html>

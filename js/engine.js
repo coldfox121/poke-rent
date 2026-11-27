@@ -278,8 +278,14 @@
     });
     var evolved = applyEvolution(g, grid);
     g.log.push('第 ' + g.totalSpins + ' 转：+' + result.total + ' 金');
-    g.offer = rollOffer(g);
-    g.phase = 'choosing';
+    if (g.spinsLeft <= 0) {
+      // 交租轮：本转不再选宝可梦，先去交租 → 领道具 → 交租后再选
+      g.offer = [];
+      g.phase = 'rentDue';
+    } else {
+      g.offer = rollOffer(g);
+      g.phase = 'choosing';
+    }
     return {
       ok: true, grid: grid, gain: result.total, detail: result.detail,
       info: result.info, bySpecies: result.bySpecies, startCoins: startCoins, offer: g.offer,
@@ -376,8 +382,10 @@
       g.log.push('获得物品：' + ITEMS[itemId].name);
     }
     g.itemOffer = [];
-    g.phase = 'spinning';
-    return { ok: true };
+    // 交租轮的宝可梦三选一挪到领完道具之后，此时才生成并展示
+    g.offer = rollOffer(g);
+    g.phase = 'choosing';
+    return { ok: true, offer: g.offer };
   }
 
   function getRent(g) {
