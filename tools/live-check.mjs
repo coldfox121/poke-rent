@@ -38,16 +38,15 @@ check(ui.text.includes('showDex'), '图鉴弹窗逻辑已部署');
 const eng = await get('/js/engine.js?v=' + V);
 check(eng.status === 200 && eng.text.includes('postRentOffer'), '交租后强制稀有度逻辑已部署');
 check(eng.text.includes('rollItemOffer'), '道具 3 选 1 逻辑已部署');
-check(eng.text.includes('revealHold'), '结果停留 1 秒参数已部署');
-
 // 静态资源
 const js = await get('/js/data.js?v=' + V);
 check(js.status === 200, 'data.js HTTP 200');
+check(js.text.includes('revealHold: 1000'), '结果停留 1 秒参数已部署');
 check(js.text.includes('saveVersion: 4'), 'data.js 存档版本正确');
 check(js.text.includes('itemOfferCount: 3'), '道具 3 选 1 配置已部署');
 check(js.text.includes('RARITY'), '稀有度数据已部署');
 const dexData = await get('/js/dex-data.js?v=' + V);
-check(dexData.status === 200 && dexData.text.includes('妙蛙种子'), '图鉴中文说明已部署');
+check(dexData.status === 200 && dexData.text.includes('小火龙'), '图鉴中文说明已部署');
 check((dexData.text.match(/"/g) || []).length >= 36, '图鉴 18 条数据齐全');
 
 // 18 只宝可梦图
